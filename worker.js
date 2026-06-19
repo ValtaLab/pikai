@@ -6,6 +6,53 @@ const _blacklistIds = new Set([
   'UCpdxWdhluGMcQ_MBhNnDNUg'
 ]);
 
+const _youtubeWhitelistIds = new Set([
+  'UCP7jMXSY2xbc3KCAE0MHQ-A','UCXZCJLdBC09xxGZ6gcdrc6A','UCrDwWp7EBBv4NwvScIpBDOA',
+  'UCxgo0OMZU9SiaYpJsuZKWkQ','UC5qxlwEKM7-5YZudb24l0bg','UC5-pBdfdA3KUo-vq72l-umA',
+  'UCHlNU7kIZhRgSbhHvFoy72w','UCpi_ULPErwrxGTDWZey5azQ','UCGSJevmBuDyxjLLOBNaYMGA',
+  'UC-ew9TfeD887qUSiWWAAj1w','UCBJycsmduvYEL83R_U4JriQ','UCXuqSBlHAE6Xw-yeJA0Tunw',
+  'UCMiJRAwDNSNzuYeN2uWa0pA','UCddiUEpeqJcYeBxX1IVBKvQ','UCftwRNsjfRo08xYE31tkiyw',
+  'UCOmcA3f_RrH6b9NmcNa4tdg','UCCjyq_K1Xwfg8Lndy7lKMpA','UC-6OW5aJYBFM33zXQlBKPNA',
+  'UCsTcErHg8oDvUnTzoqsYeNw','UCVYamHliCI9rw1tHR1xbkfw','UCbfYPyITQ-7l4upoX8nvctg',
+  'UCZHmQk67mSJgfCCTn7xBfew','UCNJ1Ymd5yFuUPtn21xtRbbw','UChpleBmo18P08aKCIgti38g',
+  'UCsBjURrPoezykLs9EqgamOA','UCSHZKyawb77ixDdsGog4iWA','UCXUPKJO5MZQN11PqgIvyuvQ',
+  'UCvKRFNawVcuz4b9ihUTApCg','UCMLtBahI5DMrt0NPvDSoIRQ','UCR9j1jqqB5Rse69wjUnbYwA',
+  'UCBa5G_ESCn8Yd4vw5U-gIcg','UCEBb1b_L6zDS3xTUrIALZOw','UCYO_jab_esuFRV4b17AJtAw',
+  'UCcIXc5mJsHVYTZR1maL5l9w','UCtYLUTtgS3k1Fg4y5tAhLbw','UCTMRxtyHoE3LPcrl-kT4AQQ',
+  'UC0m-80FnNY2Qb7obvTL_2fA'
+]);
+
+function filterAllowedYouTubeVideos(videos = [], logPrefix = "[YouTube]") {
+  return (Array.isArray(videos) ? videos : []).filter((video) => {
+    if (!video) return false;
+    if (!_youtubeWhitelistIds.has(video.channelId) || _blacklistIds.has(video.channelId)) {
+      console.log(`${logPrefix} REJECTED non-whitelist: "${video.channel || "Unknown"}" (${video.channelId || "missing-channel-id"})`);
+      return false;
+    }
+    return true;
+  });
+}
+__name(filterAllowedYouTubeVideos, "filterAllowedYouTubeVideos");
+
+async function readYouTubeCache(env, cacheKey = "youtube:videos:v25") {
+  try {
+    const cached = await env.AI_NEWS_KV.get(cacheKey);
+    if (!cached) return null;
+    const data = JSON.parse(cached);
+    const rawVideos = Array.isArray(data.videos) ? data.videos : [];
+    const filteredVideos = filterAllowedYouTubeVideos(rawVideos, "[YouTube] CACHE");
+    return {
+      rawVideos,
+      filteredVideos,
+      cachedAt: data.cachedAt || null
+    };
+  } catch (error) {
+    console.log(`[YouTube] Failed to read ${cacheKey}: ${error.message}`);
+    return null;
+  }
+}
+__name(readYouTubeCache, "readYouTubeCache");
+
 // Cloudflare Workers AI - Summarize and translate news with Llama 3.1
 // Structured JSON output with quality validation
 async function batchSummarizeWithWorkersAI(articles, env) {
@@ -1531,43 +1578,17 @@ async function fetchYouTubeVideos(env, force = false) {
 
     const cacheKey = 'youtube:videos:v25';
 
-    // Build whitelist Set for filtering
-    const whitelistIds = new Set([
-      'UCP7jMXSY2xbc3KCAE0MHQ-A','UCXZCJLdBC09xxGZ6gcdrc6A','UCrDwWp7EBBv4NwvScIpBDOA',
-      'UCxgo0OMZU9SiaYpJsuZKWkQ','UC5qxlwEKM7-5YZudb24l0bg','UC5-pBdfdA3KUo-vq72l-umA',
-      'UCHlNU7kIZhRgSbhHvFoy72w','UCpi_ULPErwrxGTDWZey5azQ','UCGSJevmBuDyxjLLOBNaYMGA',
-      'UC-ew9TfeD887qUSiWWAAj1w','UCBJycsmduvYEL83R_U4JriQ','UCXuqSBlHAE6Xw-yeJA0Tunw',
-      'UCMiJRAwDNSNzuYeN2uWa0pA','UCddiUEpeqJcYeBxX1IVBKvQ','UCftwRNsjfRo08xYE31tkiyw',
-      'UCOmcA3f_RrH6b9NmcNa4tdg','UCCjyq_K1Xwfg8Lndy7lKMpA','UC-6OW5aJYBFM33zXQlBKPNA',
-      'UCsTcErHg8oDvUnTzoqsYeNw','UCVYamHliCI9rw1tHR1xbkfw','UCbfYPyITQ-7l4upoX8nvctg',
-      'UCZHmQk67mSJgfCCTn7xBfew','UCNJ1Ymd5yFuUPtn21xtRbbw','UChpleBmo18P08aKCIgti38g',
-      'UCsBjURrPoezykLs9EqgamOA','UCSHZKyawb77ixDdsGog4iWA','UCXUPKJO5MZQN11PqgIvyuvQ',
-      'UCvKRFNawVcuz4b9ihUTApCg','UCMLtBahI5DMrt0NPvDSoIRQ','UCR9j1jqqB5Rse69wjUnbYwA',
-      'UCBa5G_ESCn8Yd4vw5U-gIcg','UCEBb1b_L6zDS3xTUrIALZOw','UCYO_jab_esuFRV4b17AJtAw',
-      'UCcIXc5mJsHVYTZR1maL5l9w','UCtYLUTtgS3k1Fg4y5tAhLbw','UCTMRxtyHoE3LPcrl-kT4AQQ',
-      'UC0m-80FnNY2Qb7obvTL_2fA'
-    ]);
-
     // Check KV cache first
-    try {
-      const cached = await env.AI_NEWS_KV.get(cacheKey);
-      if (cached) {
-        const data = JSON.parse(cached);
-        const age = Date.now() - new Date(data.cachedAt).getTime();
-        if (!force && age < 12 * 60 * 60 * 1000) {
-          const filtered = (data.videos || []).filter(v => {
-            if (!whitelistIds.has(v.channelId) || _blacklistIds.has(v.channelId)) {
-              console.log(`[YouTube] CACHE REJECTED non-whitelist: "${v.channel}" (${v.channelId})`);
-              return false;
-            }
-            return true;
-          });
-          console.log(`[YouTube] Cache hit: ${data.videos.length} videos, ${filtered.length} after whitelist filter`);
-          return filtered;
+    const cachedVideos = await readYouTubeCache(env, cacheKey);
+    if (cachedVideos && cachedVideos.cachedAt) {
+      const age = Date.now() - new Date(cachedVideos.cachedAt).getTime();
+      if (!force && age < 12 * 60 * 60 * 1000) {
+        if (cachedVideos.filteredVideos.length > 0) {
+          console.log(`[YouTube] Cache hit: ${cachedVideos.rawVideos.length} videos, ${cachedVideos.filteredVideos.length} after whitelist filter`);
+          return cachedVideos.filteredVideos;
         }
+        console.log(`[YouTube] Cache hit but no usable videos (${cachedVideos.rawVideos.length} raw), refetching live`);
       }
-    } catch (e) {
-      // Cache miss
     }
 
     // Only fetch YouTube at 06:00 and 18:00 HKT (UTC+8), unless forced
@@ -1749,7 +1770,7 @@ async function fetchYouTubeVideos(env, force = false) {
       };
     }).filter(video => {
       // STRICT: verify channel is in whitelist
-      if (!whitelistIds.has(video.channelId) || _blacklistIds.has(video.channelId)) {
+      if (!_youtubeWhitelistIds.has(video.channelId) || _blacklistIds.has(video.channelId)) {
         console.log(`[YouTube] REJECTED non-whitelist channel: "${video.channel}" (${video.channelId}) for video "${(video.title||'').substring(0,40)}"`);
         return false;
       }
@@ -2231,19 +2252,18 @@ async function submitPost() {
       const cached = await env.AI_NEWS_KV.get("news-data");
       if (cached) {
       const data2 = JSON.parse(cached);
-      // Read videos from youtube:videos:v25 (single source of truth for videos)
       const ytCacheKey = 'youtube:videos:v25';
-      const ytCached = await env.AI_NEWS_KV.get(ytCacheKey);
-      if (ytCached) {
-        const ytData = JSON.parse(ytCached);
-        // Apply whitelist filter (same as fetchYouTubeVideos)
-        const _ytWl = new Set(['UCP7jMXSY2xbc3KCAE0MHQ-A','UCXZCJLdBC09xxGZ6gcdrc6A','UCrDwWp7EBBv4NwvScIpBDOA','UCxgo0OMZU9SiaYpJsuZKWkQ','UC5qxlwEKM7-5YZudb24l0bg','UC5-pBdfdA3KUo-vq72l-umA','UCHlNU7kIZhRgSbhHvFoy72w','UCpi_ULPErwrxGTDWZey5azQ','UCGSJevmBuDyxjLLOBNaYMGA','UC-ew9TfeD887qUSiWWAAj1w','UCBJycsmduvYEL83R_U4JriQ','UCXuqSBlHAE6Xw-yeJA0Tunw','UCMiJRAwDNSNzuYeN2uWa0pA','UCddiUEpeqJcYeBxX1IVBKvQ','UCftwRNsjfRo08xYE31tkiyw','UCOmcA3f_RrH6b9NmcNa4tdg','UCCjyq_K1Xwfg8Lndy7lKMpA','UC-6OW5aJYBFM33zXQlBKPNA','UCsTcErHg8oDvUnTzoqsYeNw','UCVYamHliCI9rw1tHR1xbkfw','UCbfYPyITQ-7l4upoX8nvctg','UCZHmQk67mSJgfCCTn7xBfew','UCNJ1Ymd5yFuUPtn21xtRbbw','UChpleBmo18P08aKCIgti38g','UCsBjURrPoezykLs9EqgamOA','UCSHZKyawb77ixDdsGog4iWA','UCXUPKJO5MZQN11PqgIvyuvQ','UCvKRFNawVcuz4b9ihUTApCg','UCMLtBahI5DMrt0NPvDSoIRQ','UCR9j1jqqB5Rse69wjUnbYwA','UCBa5G_ESCn8Yd4vw5U-gIcg','UCEBb1b_L6zDS3xTUrIALZOw','UCYO_jab_esuFRV4b17AJtAw','UCcIXc5mJsHVYTZR1maL5l9w','UCtYLUTtgS3k1Fg4y5tAhLbw','UCTMRxtyHoE3LPcrl-kT4AQQ','UC0m-80FnNY2Qb7obvTL_2fA']);
-        const rawCount = (ytData.videos || []).length;
-        data2.videos = (ytData.videos || []).filter(v => _ytWl.has(v.channelId) && !_blacklistIds.has(v.channelId));
-        console.log(`[YouTube] Using ${ytCacheKey}: ${rawCount} raw videos, ${data2.videos.length} after whitelist filter`);
+      const ytCached = await readYouTubeCache(env, ytCacheKey);
+      if (ytCached && ytCached.filteredVideos.length > 0) {
+        data2.videos = ytCached.filteredVideos;
+        console.log(`[YouTube] Using ${ytCacheKey}: ${ytCached.rawVideos.length} raw videos, ${data2.videos.length} after whitelist filter`);
+      } else if (Array.isArray(data2.videos) && data2.videos.length > 0) {
+        data2.videos = filterAllowedYouTubeVideos(data2.videos, "[YouTube] NEWS-DATA");
+        console.log(`[YouTube] Falling back to news-data videos: ${data2.videos.length} usable videos`);
       } else {
-        console.log(`[YouTube] No ${ytCacheKey} cache found, falling back to news-data videos`);
-        // Keep data2.videos from news-data cache as fallback
+        console.log(`[YouTube] No usable cached videos found, attempting live fetch for page render`);
+        data2.videos = await fetchYouTubeVideos(env);
+        console.log(`[YouTube] Live fetch fallback returned ${data2.videos.length} videos`);
       }
       const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
       data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
