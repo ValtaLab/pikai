@@ -1,0 +1,20 @@
+name = "pikai"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# Cloudflare Account ID for Workers AI
+[vars]
+CF_ACCOUNT_ID = "77002f1945c94a1c33a11717015c378b"
+
+# Workers AI binding
+[ai]
+binding = "AI"
+
+# Cron Trigger: 每日 2 次 — 08:00 / 18:00 HKT = 00:00 / 10:00 UTC
+[triggers]
+crons = ["0 0 * * *", "0 10 * * *"]
+
+# KV Namespace for caching news data
+[[kv_namespaces]]
+binding = "AI_NEWS_KV"
+id = "b8dfffba53d249e2a6a73e60774217d5"

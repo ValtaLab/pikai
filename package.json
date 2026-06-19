@@ -1,0 +1,17 @@
+{
+  "name": "ai-news-webapp",
+  "version": "1.0.0",
+  "description": "",
+  "main": "fetch-og-image.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^10.2.1",
+    "globals": "^17.5.0"
+  },
+  "type": "module"
+}

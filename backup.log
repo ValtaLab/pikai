@@ -1,0 +1,259 @@
+M	worker.js
+HEAD is now at 547ecad AI News Digest full backup: 2026-04-22 18:46
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	PROJECT_SUMMARY.md
+	backup.log
+	deploy.sh
+	eslint.config.js
+	package-lock.json
+	package.json
+	worker.js.backup-2026042101
+	worker.js.bak
+
+nothing added to commit but untracked files present (use "git add" to track)
+M	PROJECT_SUMMARY.md
+M	worker.js
+HEAD is now at b6a1893 AI News Digest backup: 2026-04-23 09:18
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.bak
+	worker.js.local-backup-20260423101426
+
+nothing added to commit but untracked files present (use "git add" to track)
+M	worker.js
+HEAD is now at 70a274d Sync worker.js from Cloudflare + update PROJECT_SUMMARY
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.bak
+	worker.js.clean
+	worker.js.local-202604240937
+	worker.js.local-backup-20260423101426
+	worker.js.old-20260424
+
+nothing added to commit but untracked files present (use "git add" to track)
+M	worker.js
+HEAD is now at 70a274d Sync worker.js from Cloudflare + update PROJECT_SUMMARY
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.bak
+	worker.js.clean
+	worker.js.local-202604240937
+	worker.js.local-backup-20260423101426
+	worker.js.old-20260424
+
+nothing added to commit but untracked files present (use "git add" to track)
+M	worker.js
+HEAD is now at 70a274d Sync worker.js from Cloudflare + update PROJECT_SUMMARY
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.backup-trending-20260426130413
+	worker.js.bak
+	worker.js.clean
+	worker.js.local-202604240937
+	worker.js.local-backup-20260423101426
+	worker.js.old-20260424
+
+nothing added to commit but untracked files present (use "git add" to track)
+M	worker.js
+HEAD is now at 70a274d Sync worker.js from Cloudflare + update PROJECT_SUMMARY
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.backup-2026042801
+	worker.js.backup-trending-20260426130413
+	worker.js.bak
+	worker.js.clean
+	worker.js.local-202604240937
+	worker.js.local-backup-20260423101426
+	worker.js.local-backup-20260427135238
+	worker.js.old-20260424
+
+nothing added to commit but untracked files present (use "git add" to track)
+M	deploy.sh
+M	worker.js
+HEAD is now at 70a274d Sync worker.js from Cloudflare + update PROJECT_SUMMARY
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.deploy_hash
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.backup-2026042801
+	worker.js.backup-trending-20260426130413
+	worker.js.bak
+	worker.js.clean
+	worker.js.local-202604240937
+	worker.js.local-backup-20260423101426
+	worker.js.local-backup-20260427135238
+	worker.js.old-20260424
+
+nothing added to commit but untracked files present (use "git add" to track)
+M	deploy.sh
+M	worker.js
+M	wrangler.toml
+HEAD is now at 70a274d Sync worker.js from Cloudflare + update PROJECT_SUMMARY
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.deploy_hash
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.backup-2026042801
+	worker.js.backup-trending-20260426130413
+	worker.js.bak
+	worker.js.clean
+	worker.js.local-202604240937
+	worker.js.local-backup-20260423101426
+	worker.js.local-backup-20260427135238
+	worker.js.local-backup-20260429094151
+	worker.js.old-20260424
+
+nothing added to commit but untracked files present (use "git add" to track)
+HEAD is now at 70a274d Sync worker.js from Cloudflare + update PROJECT_SUMMARY
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.deploy_hash
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.backup-2026042801
+	worker.js.backup-trending-20260426130413
+	worker.js.bak
+	worker.js.clean
+	worker.js.local-202604240937
+	worker.js.local-backup-20260423101426
+	worker.js.local-backup-20260427135238
+	worker.js.local-backup-20260429094151
+	worker.js.old-20260424
+
+nothing added to commit but untracked files present (use "git add" to track)
+HEAD is now at 70a274d Sync worker.js from Cloudflare + update PROJECT_SUMMARY
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.deploy_hash
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.backup-2026042801
+	worker.js.backup-trending-20260426130413
+	worker.js.bak
+	worker.js.clean
+	worker.js.local-202604240937
+	worker.js.local-backup-20260423101426
+	worker.js.local-backup-20260427135238
+	worker.js.local-backup-20260429094151
+	worker.js.old-20260424
+
+nothing added to commit but untracked files present (use "git add" to track)
+M	deploy.sh
+M	worker.js
+HEAD is now at 70a274d Sync worker.js from Cloudflare + update PROJECT_SUMMARY
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.deploy_hash
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.backup-2026042801
+	worker.js.backup-trending-20260426130413
+	worker.js.bak
+	worker.js.clean
+	worker.js.local-202604240937
+	worker.js.local-backup-20260423101426
+	worker.js.local-backup-20260427135238
+	worker.js.local-backup-20260429094151
+	worker.js.old-20260424
+
+nothing added to commit but untracked files present (use "git add" to track)
+HEAD is now at 70a274d Sync worker.js from Cloudflare + update PROJECT_SUMMARY
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.deploy_hash
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.backup-2026042801
+	worker.js.backup-trending-20260426130413
+	worker.js.bak
+	worker.js.clean
+	worker.js.local-202604240937
+	worker.js.local-backup-20260423101426
+	worker.js.local-backup-20260427135238
+	worker.js.local-backup-20260429094151
+	worker.js.old-20260424
+
+nothing added to commit but untracked files present (use "git add" to track)
+M	deploy.sh
+M	worker.js
+HEAD is now at 70a274d Sync worker.js from Cloudflare + update PROJECT_SUMMARY
+On branch ai-news
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.deploy_hash
+	.wrangler/cache/cf.json
+	.wrangler/state/
+	backup.log
+	package-lock.json
+	worker.js.backup-2026042101
+	worker.js.backup-2026042801
+	worker.js.backup-trending-20260426130413
+	worker.js.bak
+	worker.js.clean
+	worker.js.local-202604240937
+	worker.js.local-backup-20260423101426
+	worker.js.local-backup-20260427135238
+	worker.js.local-backup-20260429094151
+	worker.js.old-20260424
+
+nothing added to commit but untracked files present (use "git add" to track)

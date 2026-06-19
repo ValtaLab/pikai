@@ -1,0 +1,54 @@
+name: Deploy PikAI
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:  # allow manual trigger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Lint check
+        run: npx eslint worker.js --max-warnings 0
+        continue-on-error: true  # don't block deploy on lint warnings
+
+      - name: Inject deploy hash & date
+        run: |
+          SHORT_HASH=$(echo "${{ github.sha }}" | cut -c1-7)
+          sed -i "s/DEPLOY_HASH_PLACEHOLDER/$SHORT_HASH/g" worker.js
+          echo "Hash injected: $SHORT_HASH"
+
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy
+
+      - name: Verify deployment
+        run: |
+          sleep 5
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://pikai.isearover.workers.dev/?nocache=$(date +%s)")
+          echo "HTTP Status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ Verification failed"
+            exit 1
+          fi
+          echo "✅ Deploy verified"
+          # Check PikAI brand text exists
+          if curl -s "https://pikai.isearover.workers.dev/?nocache=$(date +%s)" | grep -q "PikAI"; then
+            echo "✅ Content check passed"
+          else
+            echo "⚠️ Content check: PikAI text not found (may be cached)"
+          fi

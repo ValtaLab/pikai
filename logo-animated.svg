@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="400" height="120">
+  <defs>
+    <!-- 閃爍光暈濾鏡 -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <!-- 漸變 -->
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0d2d4a"/>
+      <stop offset="50%" stop-color="#1e5a7a"/>
+      <stop offset="100%" stop-color="#5bc0de"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 背景（可選，透明） -->
+  <rect width="400" height="120" fill="none"/>
+
+  <!-- 機械人圖標 -->
+  <g transform="translate(20, 20)">
+    <circle cx="40" cy="35" r="28" fill="url(#textGrad)" opacity="0.15"/>
+    <text x="40" y="48" font-size="42" text-anchor="middle" fill="url(#textGrad)">🤖</text>
+  </g>
+
+  <!-- PikAI 文字（預設顯示） -->
+  <g transform="translate(95, 72)">
+    <text id="text-pikai" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="800" fill="url(#textGrad)" filter="url(#glow)">
+      <tspan fill="#0d2d4a">Pik</tspan><tspan fill="#5bc0de">AI</tspan>
+    </text>
+    <!-- 閃爍動畫：opacity 0→1→0 -->
+    <animate attributeName="opacity" values="1;1;0;0;0;1" keyTimes="0;0.35;0.4;0.85;0.9;1" dur="4s" repeatCount="indefinite"/>
+  </g>
+
+  <!-- Pick AI 文字（預設隱藏） -->
+  <g transform="translate(95, 72)" opacity="0">
+    <text id="text-pickai" font-family="system-ui, -apple-system, sans-serif" font-size="56" font-weight="800" fill="url(#textGrad)" filter="url(#glow)">
+      <tspan fill="#0d2d4a">Pick </tspan><tspan fill="#5bc0de">AI</tspan>
+    </text>
+    <!-- 閃爍動畫：opacity 0→0→1→1→0 -->
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.35;0.4;0.85;0.9;1" dur="4s" repeatCount="indefinite"/>
+  </g>
+
+  <!-- 裝飾閃光點 -->
+  <circle cx="320" cy="30" r="3" fill="#5bc0de" opacity="0">
+    <animate attributeName="opacity" values="0;0;1;0;0;0" keyTimes="0;0.3;0.4;0.5;0.9;1" dur="4s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="340" cy="80" r="2" fill="#1e5a7a" opacity="0">
+    <animate attributeName="opacity" values="0;0;0;0;1;0" keyTimes="0;0.6;0.75;0.85;0.95;1" dur="4s" repeatCount="indefinite"/>
+  </circle>
+</svg>

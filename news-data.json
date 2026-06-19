@@ -1,0 +1,27 @@
+{
+  "date": "2026-04-18",
+  "generatedAt": "2026-04-18T09:00:00+08:00",
+  "news": [
+    {
+      "title": "Anthropic 發布 Claude 4.7 系列模型，效能超越 GPT-4",
+      "source": "The Verge",
+      "url": "https://www.theverge.com/example",
+      "image": "",
+      "summary": "Anthropic 推出了全新 Claude 4.7 系列，在多項基準測試中超越 GPT-4，特別在長文本理解與複雜推理方面表現出色。"
+    },
+    {
+      "title": "Google 展示 Gemini 2.0 Ultra 對話系統",
+      "source": "TechCrunch",
+      "url": "https://techcrunch.com/example",
+      "image": "",
+      "summary": "Google 在 I/O 大會上展示了 Gemini 2.0 Ultra 的強大對話能力，能夠即時分析文件並回答複雜問題。"
+    },
+    {
+      "title": "Meta 開源 Llama 4 重量級模型",
+      "source": "MIT Technology Review",
+      "url": "https://technologyreview.com/example",
+      "image": "",
+      "summary": "Meta 宣佈開源 Llama 4 系列，其中旗艦版本擁有 400B 參數，在多語言任務上表現優異。"
+    }
+  ]
+}
