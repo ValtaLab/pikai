@@ -2651,6 +2651,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       html += '<div class="summarized-source">' + escapeHtml(video.channel) + ' · ' + escapeHtml(video.viewCount) + ' views · ' + escapeHtml(video.duration) + '</div>';
       html += '<div class="video-title">' + escapeHtml(video.title) + '</div>';
       html += '<div class="video-ai-wrap"><button class="video-ai-btn" onclick="event.stopPropagation();fetchVideoSummary(this,\'' + videoId + '\')">&#x1F9E0; &#x6458;&#x8981;</button><div class="video-ai-summary" id="ai-summary-' + videoId + '"><div class="ai-label">&#x1F916; AI &#x7E3D;&#x7D50;</div><div class="video-ai-body"></div></div><div class="video-ai-error" id="ai-error-' + videoId + '"></div></div>';
+      html += '</div></div>';
     });
     html += '</div></div>';
   } else {

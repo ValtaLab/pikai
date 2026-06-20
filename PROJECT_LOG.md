@@ -1,8 +1,8 @@
 ---
 project: ai-news-digest
 status: active
-last_deploy: 2026-06-20T20:57:31+08:00
-last_version: 0be8de3
+last_deploy: 2026-06-20T23:09:03+08:00
+last_version: 1758990
 last_update_by: HermesBPi
 ---
 
@@ -103,7 +103,7 @@ npx wrangler kv key get news-data --namespace-id=b8dfffba53d249e2a6a73e60774217d
 4. **Blog KV**: deploy.sh 自動 upload `blog-posts.json` → KV
 
 ---
-*最後更新: 2026-06-20 20:57 HKT by HermesBPi*
+*最後更新: 2026-06-20 23:09 HKT by HermesBPi*
 
 ## 2026-06-03 08:06
 - **Type**: 優化
@@ -434,3 +434,15 @@ console.log 追蹤：summarizeWithWorkersAI called / response type / preParsed p
   - 新增 -webkit-line-clamp: 3 確保標題完整顯示
   - line-height 調整為 1.45
 - **Version**: 0be8de3
+
+## 2026-06-20 23:09
+- **Type**: 新增功能
+- **Summary**: 影片加入 AI 繁體中文摘要功能
+- **Details**:
+  - 新增 /api/video-summary POST endpoint
+  - 從 youtubetranscript.com 免費獲取字幕
+  - Workers AI (llama-3.3-70b) 生成繁體中文總結
+  - KV cache 30 日，重複 click 即時顯示
+  - 每個影片 card 下方「🧠 摘要」按鈕
+  - AI 總結區塊有 loading 狀態同錯誤提示
+- **Version**: 1758990
