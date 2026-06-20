@@ -1,8 +1,8 @@
 ---
 project: ai-news-digest
 status: active
-last_deploy: 2026-06-20T23:17:41+08:00
-last_version: 33bf771
+last_deploy: 2026-06-21T00:28:03+08:00
+last_version: b978251
 last_update_by: HermesBPi
 ---
 
@@ -103,7 +103,7 @@ npx wrangler kv key get news-data --namespace-id=b8dfffba53d249e2a6a73e60774217d
 4. **Blog KV**: deploy.sh 自動 upload `blog-posts.json` → KV
 
 ---
-*最後更新: 2026-06-20 23:17 HKT by HermesBPi*
+*最後更新: 2026-06-21 00:28 HKT by HermesBPi*
 
 ## 2026-06-03 08:06
 - **Type**: 優化
@@ -453,3 +453,14 @@ console.log 追蹤：summarizeWithWorkersAI called / response type / preParsed p
 - **Details**:
 因為 patch 時唔小心刪咗 card 嘅 closing </div></div>，導致每張卡片巢咗入上一張入面，卡片逐張變細
 - **Version**: 33bf771
+
+## 2026-06-21 00:28
+- **Type**: 修復
+- **Summary**: 修復影片 AI 摘要功能
+- **Details**:
+改用 YouTube InnerTube API (ANDROID client) 取代 youtubetranscript.com
+- youtubetranscript.com 已改為返回 HTML 頁面，無法直接 API 取字幕
+- 改用 InnerTube API 獲取 caption tracks
+- 從 timedtext XML 解析字幕文字
+- 支援英文/中文/粵語字幕
+- **Version**: b978251

@@ -2164,58 +2164,19 @@ var worker_default = {
           if (cached) {
             return new Response(JSON.stringify({ summary: cached, cached: true }), { headers: { "Content-Type": "application/json" } });
           }
-          // Step 1: Fetch YouTube video page to get INNERTUBE_API_KEY
-          const ytPage = await fetch("https://www.youtube.com/watch?v=" + videoId, {
-            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" },
-            signal: AbortSignal.timeout(10000)
-          });
-          const ytHtml = await ytPage.text();
-          const apiKeyMatch = ytHtml.match(/"INNERTUBE_API_KEY":\s*"([a-zA-Z0-9_-]+)"/);
-          if (!apiKeyMatch) {
-            return new Response(JSON.stringify({ error: "Could not extract API key from YouTube page" }), { status: 502, headers: { "Content-Type": "application/json" } });
-          }
-          const innerTubeApiKey = apiKeyMatch[1];
-          // Step 2: Call InnerTube API (ANDROID client) to get caption tracks
-          const innerTubeUrl = "https://www.youtube.com/youtubei/v1/player?key=" + innerTubeApiKey;
-          const innerTubeRes = await fetch(innerTubeUrl, {
+          // Step 1: Fetch transcript from Pi's transcript API via Cloudflare Tunnel
+          const TRANSCRIPT_API = "https://romance-dvds-flour-modern.trycloudflare.com/transcript";
+          const transcriptRes = await fetch(TRANSCRIPT_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              context: { client: { clientName: "ANDROID", clientVersion: "20.10.38" } },
-              videoId: videoId
-            }),
-            signal: AbortSignal.timeout(10000)
+            body: JSON.stringify({ videoId }),
+            signal: AbortSignal.timeout(15000)
           });
-          const innerTubeData = await innerTubeRes.json();
-          const captionTracks = innerTubeData?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
-          if (captionTracks.length === 0) {
-            return new Response(JSON.stringify({ error: "This video has no captions available" }), { status: 404, headers: { "Content-Type": "application/json" } });
+          const transcriptData = await transcriptRes.json();
+          if (transcriptData.error) {
+            return new Response(JSON.stringify({ error: "Transcript fetch failed: " + transcriptData.error }), { status: 502, headers: { "Content-Type": "application/json" } });
           }
-          // Find English or Chinese captions
-          let captionUrl = null;
-          for (const lang of ["en", "zh-Hant", "zh-Hans", "zh", "yue"]) {
-            const track = captionTracks.find(t => t.languageCode === lang);
-            if (track) { captionUrl = track.baseUrl; break; }
-          }
-          if (!captionUrl) captionUrl = captionTracks[0].baseUrl;
-          // Step 3: Fetch the caption/transcript XML
-          const captionRes = await fetch(captionUrl, {
-            headers: { "User-Agent": "Mozilla/5.0" },
-            signal: AbortSignal.timeout(10000)
-          });
-          const captionXml = await captionRes.text();
-          // Step 4: Parse XML to extract text content
-          let transcriptText = "";
-          const textMatches = captionXml.match(/<text[^>]*>(.*?)<\/text>/g) || [];
-          for (const match of textMatches) {
-            const content = match.replace(/<[^>]+>/g, "").trim();
-            if (content) {
-              // Decode HTML entities
-              const decoded = content.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-              transcriptText += decoded + " ";
-            }
-          }
-          transcriptText = transcriptText.trim();
+          let transcriptText = transcriptData.text || "";
           if (transcriptText.length < 20) {
             return new Response(JSON.stringify({ error: "Transcript too short or empty" }), { status: 404, headers: { "Content-Type": "application/json" } });
           }
