@@ -1865,7 +1865,12 @@ async function fetchYouTubeTranscript(videoId) {
         `https://www.youtube.com/youtubei/v1/player?key=${YT_INNERTUBE_API_KEY}`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Origin': 'https://www.youtube.com',
+            'X-YouTube-Client-Name': client.clientName === 'ANDROID' ? '3' : '1',
+            'X-YouTube-Client-Version': client.clientVersion,
+          },
           body: JSON.stringify({
             context: { client },
             videoId: videoId,
