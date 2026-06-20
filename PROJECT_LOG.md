@@ -1,8 +1,8 @@
 ---
 project: ai-news-digest
 status: active
-last_deploy: 2026-06-20T20:43:17+08:00
-last_version: 604fd4f
+last_deploy: 2026-06-20T20:57:31+08:00
+last_version: 0be8de3
 last_update_by: HermesBPi
 ---
 
@@ -103,7 +103,7 @@ npx wrangler kv key get news-data --namespace-id=b8dfffba53d249e2a6a73e60774217d
 4. **Blog KV**: deploy.sh 自動 upload `blog-posts.json` → KV
 
 ---
-*最後更新: 2026-06-20 20:43 HKT by HermesBPi*
+*最後更新: 2026-06-20 20:57 HKT by HermesBPi*
 
 ## 2026-06-03 08:06
 - **Type**: 優化
@@ -425,3 +425,12 @@ console.log 追蹤：summarizeWithWorkersAI called / response type / preParsed p
   - body font-family 改為 "Pliant"
   - Admin page font-family 同步更新
 - **Version**: 604fd4f
+
+## 2026-06-20 20:57
+- **Type**: 優化
+- **Summary**: 影片tab卡片標題字體加大及完整顯示修正
+- **Details**:
+  - .video-title font-size: 0.91rem → 1.05rem
+  - 新增 -webkit-line-clamp: 3 確保標題完整顯示
+  - line-height 調整為 1.45
+- **Version**: 0be8de3
