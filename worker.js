@@ -2151,6 +2151,67 @@ var worker_default = {
           return new Response(JSON.stringify({ error: e.message, name: e.name }), { status: 500, headers: { "Content-Type": "application/json" } });
         }
       }
+      if (url.pathname === "/api/video-summary" && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const videoId = body.videoId;
+          if (!videoId || !/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+            return new Response(JSON.stringify({ error: "Invalid video ID" }), { status: 400, headers: { "Content-Type": "application/json" } });
+          }
+          // Check KV cache first
+          const cacheKey = "video-summary:" + videoId;
+          const cached = await env.AI_NEWS_KV.get(cacheKey);
+          if (cached) {
+            return new Response(JSON.stringify({ summary: cached, cached: true }), { headers: { "Content-Type": "application/json" } });
+          }
+          // Fetch transcript from youtubetranscript.com
+          const transcriptUrl = "https://youtubetranscript.com/?v=" + videoId + "&format=json";
+          const transcriptRes = await fetch(transcriptUrl, { signal: AbortSignal.timeout(10000) });
+          if (!transcriptRes.ok) {
+            const errorText = await transcriptRes.text();
+            return new Response(JSON.stringify({ error: "Transcript fetch failed", detail: errorText }), { status: 502, headers: { "Content-Type": "application/json" } });
+          }
+          const transcriptData = await transcriptRes.json();
+          if (transcriptData.error) {
+            return new Response(JSON.stringify({ error: "Transcript unavailable: " + transcriptData.error }), { status: 404, headers: { "Content-Type": "application/json" } });
+          }
+          // Combine transcript segments into plain text
+          let transcriptText = "";
+          if (Array.isArray(transcriptData)) {
+            transcriptText = transcriptData.map(s => s.text || "").join(" ");
+          } else if (transcriptData.text) {
+            transcriptText = transcriptData.text;
+          } else {
+            transcriptText = JSON.stringify(transcriptData);
+          }
+          // Trim to max 6000 chars to avoid AI input limits
+          if (transcriptText.length > 6000) {
+            transcriptText = transcriptText.substring(0, 6000) + "...";
+          }
+          // Call Workers AI to summarize in Traditional Chinese
+          const prompt = `你係專業嘅AI助手。請用繁體中文總結以下YouTube影片嘅字幕，要點清晰，保持關鍵技術細節，約100-150字。\n\n字幕：${transcriptText}`;
+          const aiResult = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+            messages: [{ role: 'user', content: prompt }],
+            max_tokens: 500
+          });
+          let summary = "";
+          if (typeof aiResult === 'string') {
+            summary = aiResult;
+          } else if (aiResult.response) {
+            summary = aiResult.response;
+          } else if (Array.isArray(aiResult) && aiResult.length > 0) {
+            summary = aiResult[aiResult.length - 1]?.content || JSON.stringify(aiResult);
+          } else {
+            summary = JSON.stringify(aiResult);
+          }
+          summary = summary.trim();
+          // Cache in KV for 30 days (2592000 seconds)
+          await env.AI_NEWS_KV.put(cacheKey, summary, { expirationTtl: 2592000 });
+          return new Response(JSON.stringify({ summary, cached: false }), { headers: { "Content-Type": "application/json" } });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: e.message, name: e.name }), { status: 500, headers: { "Content-Type": "application/json" } });
+        }
+      }
       if (url.pathname === "/trigger-youtube") {
         try {
           const videos = await fetchYouTubeVideos(env, true);
@@ -2432,6 +2493,13 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".summarized-title { font-size: 1.14rem; color: #222; line-height: 1.4; margin-bottom: 0.5rem; font-weight: 600; }";
   html += ".video-title { font-size: 1.05rem; color: #222; line-height: 1.45; margin-bottom: 0.5rem; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }";
   html += ".summarized-text { font-size: 1.02rem; color: #555; line-height: 1.5; }";
+  html += ".video-ai-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 5px 12px; background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; border: none; border-radius: 20px; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+  html += ".video-ai-btn:hover { opacity: 0.85; }
+  html += ".video-ai-btn:disabled { opacity: 0.5; cursor: wait; }
+  html += ".video-ai-summary { margin-top: 8px; padding: 10px 12px; background: #f0f4ff; border-radius: 10px; font-size: 0.88rem; color: #333; line-height: 1.6; display: none; border-left: 3px solid #0066ff; }
+  html += ".video-ai-summary.visible { display: block; }
+  html += ".video-ai-summary .ai-label { font-size: 0.72rem; color: #0066ff; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+  html += ".video-ai-error { color: #dc3545; font-size: 0.82rem; margin-top: 6px; }
   html += ".ai-digest-badge { display: inline-block; background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-right: 6px; vertical-align: middle; }";
   /* Blog article styles */
   html += ".blog-list { display: flex; flex-direction: column; gap: 2rem; max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }";
@@ -2582,7 +2650,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       html += '<div class="summarized-content">';
       html += '<div class="summarized-source">' + escapeHtml(video.channel) + ' · ' + escapeHtml(video.viewCount) + ' views · ' + escapeHtml(video.duration) + '</div>';
       html += '<div class="video-title">' + escapeHtml(video.title) + '</div>';
-      html += '</div></div>';
+      html += '<div class="video-ai-wrap"><button class="video-ai-btn" onclick="event.stopPropagation();fetchVideoSummary(this,\'' + videoId + '\')">&#x1F9E0; &#x6458;&#x8981;</button><div class="video-ai-summary" id="ai-summary-' + videoId + '"><div class="ai-label">&#x1F916; AI &#x7E3D;&#x7D50;</div><div class="video-ai-body"></div></div><div class="video-ai-error" id="ai-error-' + videoId + '"></div></div>';
     });
     html += '</div></div>';
   } else {
@@ -2852,6 +2920,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += "<script>";
   html += 'function openVideoModal(id){var m=document.getElementById("videoModal"),f=document.getElementById("videoIframe");f.src="https://www.youtube.com/embed/"+id+"?autoplay=1";m.style.display="flex";document.body.style.overflow="hidden";}';
   html += 'function closeVideoModal(){var m=document.getElementById("videoModal"),f=document.getElementById("videoIframe");f.src="";m.style.display="none";document.body.style.overflow="";}';
+  html += 'async function fetchVideoSummary(btn,videoId){var box=document.getElementById("ai-summary-"+videoId);var err=document.getElementById("ai-error-"+videoId);if(box&&box.classList.contains("visible"))return;if(btn)btn.disabled=true;if(btn)btn.textContent="⟳ AI 總結中...";if(err)err.textContent="";try{var res=await fetch("/api/video-summary",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({videoId:videoId})});var data=await res.json();if(data.error){if(err)err.textContent=data.error;if(btn)btn.textContent="🧠 摘要";return;}if(box){box.querySelector(".video-ai-body").textContent=data.summary;box.classList.add("visible");}if(btn)btn.textContent="🧠 摘要";}catch(e){if(err)err.textContent="連線錯誤，請稍後再試";if(btn)btn.textContent="🧠 摘要";}finally{if(btn)btn.disabled=false;}}';
   html += 'document.addEventListener("keydown",function(e){if(e.key==="Escape")closeVideoModal();});';
   html += 'function switchTab(tabName) { document.querySelector(".hero").scrollIntoView({behavior:"instant"}); document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active")}); document.querySelectorAll(".content-section").forEach(function(s){s.classList.remove("active");s.style.display="none";s.style.visibility="hidden";}); document.querySelector(".tab-"+tabName).classList.add("active"); var sec=document.querySelector(".section-"+tabName); if(sec){sec.classList.add("active");sec.style.display="block";sec.style.visibility="visible";} };';
   html += 'function toggleBlogArticle(index){var article=document.getElementById("blog-post-"+index);if(!article)return;var isExpanded=article.classList.contains("expanded");if(isExpanded){article.classList.remove("expanded");article.classList.add("collapsed");}else{article.classList.remove("collapsed");article.classList.add("expanded");}};';
