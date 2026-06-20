@@ -1,8 +1,8 @@
 ---
 project: ai-news-digest
 status: active
-last_deploy: 2026-06-18T12:28:57+08:00
-last_version: 809fc94
+last_deploy: 2026-06-20T20:43:17+08:00
+last_version: 604fd4f
 last_update_by: HermesBPi
 ---
 
@@ -103,7 +103,7 @@ npx wrangler kv key get news-data --namespace-id=b8dfffba53d249e2a6a73e60774217d
 4. **Blog KV**: deploy.sh 自動 upload `blog-posts.json` → KV
 
 ---
-*最後更新: 2026-06-18 12:28 HKT by HermesBPi*
+*最後更新: 2026-06-20 20:43 HKT by HermesBPi*
 
 ## 2026-06-03 08:06
 - **Type**: 優化
@@ -416,3 +416,12 @@ console.log 追蹤：summarizeWithWorkersAI called / response type / preParsed p
 - 冇 OG image 時以 PikAI logo 配漸層背景做優雅 fallback
 - 取代舊有 Google favicon fallback
 - **Version**: 809fc94
+
+## 2026-06-20 20:43
+- **Type**: 優化
+- **Summary**: 全網英文字體由 Urbanist 切換為 Pliant
+- **Details**:
+  - Google Fonts import URL 更新
+  - body font-family 改為 "Pliant"
+  - Admin page font-family 同步更新
+- **Version**: 604fd4f

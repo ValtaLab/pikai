@@ -2430,7 +2430,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".summarized-content { padding: 1rem; }";
   html += ".summarized-source { font-size: 0.84rem; color: #0066ff; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem; font-weight: 600; }";
   html += ".summarized-title { font-size: 1.14rem; color: #222; line-height: 1.4; margin-bottom: 0.5rem; font-weight: 600; }";
-  html += ".video-title { font-size: 0.91rem; color: #222; line-height: 1.4; margin-bottom: 0.5rem; font-weight: 600; }";
+  html += ".video-title { font-size: 1.05rem; color: #222; line-height: 1.45; margin-bottom: 0.5rem; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }";
   html += ".summarized-text { font-size: 1.02rem; color: #555; line-height: 1.5; }";
   html += ".ai-digest-badge { display: inline-block; background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-right: 6px; vertical-align: middle; }";
   /* Blog article styles */
