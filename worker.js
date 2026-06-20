@@ -467,6 +467,12 @@ __name(getCachedArticle, 'getCachedArticle');
 
 async function setCachedArticle(url, result, env) {
   try {
+    const title = result?.translatedTitle || '';
+    const summary = result?.summary || '';
+    if (!/[\u4e00-\u9fff]/.test(title) || !/[\u4e00-\u9fff]/.test(summary)) {
+      console.log(`[Cache] SKIP article (non-Chinese): ${url.substring(0, 50)}...`);
+      return;
+    }
     const key = `article:v2:${md5(url)}`;
     const data = { 
       translatedTitle: result.translatedTitle, 
@@ -1895,32 +1901,25 @@ async function fetchNewsData(env) {
     
     for (let batchStart = 0; batchStart < withImages.length; batchStart += BATCH_SIZE) {
       const batchEnd = Math.min(batchStart + BATCH_SIZE, withImages.length);
-      const uncachedItems = [];
       console.log(`[fetchNewsData] Processing batch ${Math.floor(batchStart/BATCH_SIZE) + 1}: ${batchStart}-${batchEnd-1} of ${withImages.length}`);
-      
+
+      const itemsToSummarize = [];
       for (let i = batchStart; i < batchEnd; i++) {
         const item = withImages[i];
         console.log(`[SumLoop] Processing article ${i+1}/${withImages.length}: "${item.title.substring(0, 60)}", hasDesc: ${!!item.description}`);
         try {
-          // Check KV cache first (no subrequest cost)
           const cached = await getCachedArticle(item.url, env);
-          if (cached && cached.summary) {
-            let useCachedTitle = true;
-            if (cached.translatedTitle) {
-              const badPatterns = [
-                /唔再.*之間/, /之間中/, /就.*[冇无].*再/,
-                /[冇无].*再.*之間/, /[是係].*[冇无].*再/,
-              ];
-              // Check: is cached title actually Chinese? If not, skip cache for retry
-              const cachedHasChinese = /[\u4e00-\u9fff]/.test(cached.translatedTitle);
-              if (!cachedHasChinese || badPatterns.some(p => p.test(cached.translatedTitle)) || 
-                  cached.translatedTitle.length > 60 || 
-                  cached.translatedTitle.length < 8) {
-                useCachedTitle = false;
-                console.log(`[Cache] Invalid cached headline (no Chinese or rejected): "${cached.translatedTitle.substring(0,40)}"`);
-              }
-            }
-            if (useCachedTitle) {
+          if (cached && cached.summary && cached.translatedTitle) {
+            const badPatterns = [
+              /唔再.*之間/, /之間中/, /就.*[冇无].*再/,
+              /[冇无].*再.*之間/, /[是係].*[冇无].*再/,
+            ];
+            const titleOk = /[\u4e00-\u9fff]/.test(cached.translatedTitle) &&
+              !badPatterns.some(p => p.test(cached.translatedTitle)) &&
+              cached.translatedTitle.length <= 60 &&
+              cached.translatedTitle.length >= 8;
+            const summaryOk = /[\u4e00-\u9fff]/.test(cached.summary) && cached.summary.length >= 20;
+            if (titleOk && summaryOk) {
               console.log(`[Cache] Using cached translation for: ${item.title.substring(0, 40)}...`);
               summarizedNews.push({
                 ...item,
@@ -1928,59 +1927,98 @@ async function fetchNewsData(env) {
                 summary: cached.summary,
                 summarizedAt: new Date().toISOString()
               });
-            } else {
-              // Bad cache - add to uncached for retry with batch AI
-              console.log(`[Cache] Re-processing (bad cached headline): ${item.title.substring(0, 40)}...`);
-              uncachedItems.push({ index: i, item });
+              continue;
             }
-            continue;
+            console.log(`[Cache] Re-processing (invalid cached result): ${item.title.substring(0, 40)}...`);
           }
-          
-          // No cache - try Workers AI first (1 subrequest)
-          let result = await summarizeWithWorkersAI(item.title, item.description || '', env);
-          console.log(`[SumLoop] AI result for "${item.title.substring(0, 40)}": summary=${result.summary ? `"${result.summary.substring(0, 60)}..."` : 'EMPTY'}, qualityFlag=${result.qualityFlag}, titleZh="${(result.translatedTitle || '').substring(0, 30)}"`);
-          
-          // If Workers AI failed, try NVIDIA API (1 subrequest)
-          if (!result.summary && env.NVIDIA_API_KEY) {
-            console.log(`[Workers AI] Failed, trying NVIDIA for: ${item.title.substring(0, 40)}...`);
-            const prompt = `標題：${item.title}\n內容：${item.description || ''}\n\n請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。\n\n【標題翻譯原則】\n- 唔好直譯！要理解原文意思後，用自然嘅中文重新表達\n- 保留英文名稱（公司名、產品名、技術名詞）\n- 避免語序混亂、缺主語、缺謂語嘅問題\n\n格式：\n標題：[中文標題]\n總結：[總結內容]`;
-            const nvidiaResult = await callNvidiaAPI(prompt, env.NVIDIA_API_KEY, 500);
-            if (nvidiaResult.success) {
-              const text = nvidiaResult.text;
-              const titleMatch = text.match(/標題[：:]\s*(.+?)(?:\n|$)/);
-              const summaryMatch = text.match(/總結[：:]\s*([\s\S]+)/);
-              let summary = summaryMatch ? summaryMatch[1].trim() : text.trim();
-              
-              let translatedTitle = titleMatch ? titleMatch[1].trim() : '';
-              const badPatterns = [
-                /唔再.*之間/, /之間中/, /就.*[冇无].*再/,
-                /[冇无].*再.*之間/, /[是係].*[冇无].*再/,
-              ];
-              const hasBadPattern = badPatterns.some(p => p.test(translatedTitle));
-              if (hasBadPattern || translatedTitle.length > 40 || (translatedTitle.length > 0 && translatedTitle.length < 8)) {
-                console.log(`[NVIDIA] Bad headline detected: "${translatedTitle}", using original`);
-                translatedTitle = '';
+          itemsToSummarize.push(item);
+        } catch (e) {
+          console.log(`[fetchNewsData] Cache check failed: ${e.message}`);
+          itemsToSummarize.push(item);
+        }
+      }
+
+      if (itemsToSummarize.length > 0) {
+        try {
+          const batchResults = await batchSummarizeWithWorkersAI(itemsToSummarize, env);
+          for (let rIndex = 0; rIndex < itemsToSummarize.length; rIndex++) {
+            const item = itemsToSummarize[rIndex];
+            let result = batchResults[rIndex] || { translatedTitle: '', summary: '', qualityFlag: 'batch_missing' };
+
+            if (result.summary && !/[\u4e00-\u9fff]/.test(result.summary)) {
+              result = { ...result, summary: '', qualityFlag: 'non_chinese_summary' };
+            }
+            if (result.translatedTitle && !/[\u4e00-\u9fff]/.test(result.translatedTitle)) {
+              result = { ...result, translatedTitle: '', qualityFlag: 'non_chinese_title' };
+            }
+
+            if (!result.summary && env.NVIDIA_API_KEY) {
+              console.log(`[Workers AI] Failed, trying NVIDIA for: ${item.title.substring(0, 40)}...`);
+              const prompt = `標題：${item.title}\n內容：${item.description || ''}\n\n請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。\n\n【標題翻譯原則】\n- 唔好直譯！要理解原文意思後，用自然嘅中文重新表達\n- 保留英文名稱（公司名、產品名、技術名詞）\n- 避免語序混亂、缺主語、缺謂語嘅問題\n\n格式：\n標題：[中文標題]\n總結：[總結內容]`;
+              const nvidiaResult = await callNvidiaAPI(prompt, env.NVIDIA_API_KEY, 500);
+              if (nvidiaResult.success) {
+                const text = nvidiaResult.text;
+                const titleMatch = text.match(/標題[：:]\s*(.+?)(?:\n|$)/);
+                const summaryMatch = text.match(/總結[：:]\s*([\s\S]+)/);
+                const summary = summaryMatch ? summaryMatch[1].trim() : text.trim();
+                let translatedTitle = titleMatch ? titleMatch[1].trim() : '';
+                const badPatterns = [
+                  /唔再.*之間/, /之間中/, /就.*[冇无].*再/,
+                  /[冇无].*再.*之間/, /[是係].*[冇无].*再/,
+                ];
+                const hasBadPattern = badPatterns.some(p => p.test(translatedTitle));
+                if (hasBadPattern || translatedTitle.length > 40 || (translatedTitle.length > 0 && translatedTitle.length < 8)) {
+                  console.log(`[NVIDIA] Bad headline detected: "${translatedTitle}", using original`);
+                  translatedTitle = '';
+                }
+                result = { translatedTitle, summary, qualityFlag: 'nvidia' };
+                console.log(`[NVIDIA] Summarized: ${translatedTitle || item.title.substring(0, 40)}...`);
               }
-              
-              result = {
-                translatedTitle: translatedTitle,
-                summary: summary
-              };
-              console.log(`[NVIDIA] Summarized: ${translatedTitle || item.title.substring(0, 40)}...`);
             }
-          }
-          
-          if (result.summary) {
-            await setCachedArticle(item.url, result, env);
-            summarizedNews.push({
-              ...item,
-              translatedTitle: result.translatedTitle || item.title,
-              summary: result.summary,
-              summarizedAt: new Date().toISOString()
-            });
+
+            if (result.summary && !/[\u4e00-\u9fff]/.test(result.summary)) {
+              result = { ...result, summary: '' };
+            }
+            if (result.translatedTitle && !/[\u4e00-\u9fff]/.test(result.translatedTitle)) {
+              result = { ...result, translatedTitle: '' };
+            }
+
+            if (!result.summary) {
+              const fallbackSource = (item.description || item.summary || item.title || '').substring(0, 200);
+              const tRes = await translateWithMyMemory(item.title, "en", "zh-TW");
+              const sRes = await translateWithMyMemory(fallbackSource, "en", "zh-TW");
+              const translatedTitle = tRes.success ? tRes.text : '';
+              const summary = sRes.success ? sRes.text : '';
+              if (summary && /[\u4e00-\u9fff]/.test(summary)) {
+                result = { translatedTitle, summary, qualityFlag: 'mymemory' };
+              }
+            }
+
+            if (result.summary) {
+              let translatedTitle = result.translatedTitle || '';
+              if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
+                try {
+                  const zh = await translateTitleWithWorkersAI(item.title, env);
+                  if (zh) translatedTitle = zh;
+                } catch (_e) {}
+                if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
+                  const tRes = await translateWithMyMemory(item.title, "en", "zh-TW");
+                  if (tRes.success && tRes.text && /[\u4e00-\u9fff]/.test(tRes.text)) {
+                    translatedTitle = tRes.text;
+                  }
+                }
+              }
+              summarizedNews.push({
+                ...item,
+                translatedTitle: translatedTitle || item.title,
+                summary: result.summary,
+                summarizedAt: new Date().toISOString()
+              });
+              await setCachedArticle(item.url, { ...result, translatedTitle }, env);
+            }
           }
         } catch (e) {
-          console.log(`[fetchNewsData] Failed to summarize: ${e.message}`);
+          console.log(`[fetchNewsData] Batch summarize failed: ${e.message}`);
         }
       }
       
