@@ -2165,7 +2165,7 @@ var worker_default = {
             return new Response(JSON.stringify({ summary: cached, cached: true }), { headers: { "Content-Type": "application/json" } });
           }
           // Step 1: Fetch transcript from Pi's transcript API via Cloudflare Tunnel
-          const TRANSCRIPT_API = "https://romance-dvds-flour-modern.trycloudflare.com/transcript";
+          const TRANSCRIPT_API = "https://bbs-than-mercury-opponents.trycloudflare.com/transcript";
           const transcriptRes = await fetch(TRANSCRIPT_API, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
