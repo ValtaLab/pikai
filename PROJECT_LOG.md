@@ -1,8 +1,8 @@
 ---
 project: ai-news-digest
 status: active
-last_deploy: 2026-06-20T23:09:03+08:00
-last_version: 1758990
+last_deploy: 2026-06-20T23:17:41+08:00
+last_version: 33bf771
 last_update_by: HermesBPi
 ---
 
@@ -103,7 +103,7 @@ npx wrangler kv key get news-data --namespace-id=b8dfffba53d249e2a6a73e60774217d
 4. **Blog KV**: deploy.sh 自動 upload `blog-posts.json` → KV
 
 ---
-*最後更新: 2026-06-20 23:09 HKT by HermesBPi*
+*最後更新: 2026-06-20 23:17 HKT by HermesBPi*
 
 ## 2026-06-03 08:06
 - **Type**: 優化
@@ -446,3 +446,10 @@ console.log 追蹤：summarizeWithWorkersAI called / response type / preParsed p
   - 每個影片 card 下方「🧠 摘要」按鈕
   - AI 總結區塊有 loading 狀態同錯誤提示
 - **Version**: 1758990
+
+## 2026-06-20 23:17
+- **Type**: 修復
+- **Summary**: 修復影片tab卡片嵌套問題
+- **Details**:
+因為 patch 時唔小心刪咗 card 嘅 closing </div></div>，導致每張卡片巢咗入上一張入面，卡片逐張變細
+- **Version**: 33bf771
