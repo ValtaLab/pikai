@@ -1844,6 +1844,94 @@ async function fetchYouTubeVideos(env, force = false) {
 __name(fetchYouTubeVideos, 'fetchYouTubeVideos');
 
 
+async function fetchYouTubeTranscript(videoId) {
+  // Fetch transcript directly from YouTube's internal API — no Pi 5 needed
+  // Replicates youtube_transcript_api Python library logic
+  try {
+    // Step 1: Get video page HTML to extract INNERTUBE_API_KEY
+    const watchRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US',
+      },
+      signal: AbortSignal.timeout(10000),
+    });
+    const html = await watchRes.text();
+
+    // Step 2: Extract INNERTUBE_API_KEY from page HTML
+    const apiKeyMatch = html.match(/"INNERTUBE_API_KEY":\s*"([a-zA-Z0-9_-]+)"/);
+    if (!apiKeyMatch) {
+      throw new Error('INNERTUBE_API_KEY not found in YouTube page');
+    }
+    const apiKey = apiKeyMatch[1];
+
+    // Step 3: Call YouTube inner player API to get caption tracks
+    const playerRes = await fetch(`https://www.youtube.com/youtubei/v1/player?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        context: { client: { clientName: 'ANDROID', clientVersion: '20.10.38' } },
+        videoId: videoId,
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+    const playerData = await playerRes.json();
+
+    // Step 4: Extract caption tracks
+    const captions = playerData?.captions?.playerCaptionsTracklistRenderer;
+    if (!captions?.captionTracks?.length) {
+      throw new Error('No captions available for this video');
+    }
+
+    // Step 5: Find best matching caption (prefer English)
+    const preferredLangs = ['en', 'en-US', 'en-GB', 'en-CA', 'en-AU'];
+    let captionUrl = null;
+    for (const track of captions.captionTracks) {
+      if (preferredLangs.includes(track.languageCode)) {
+        captionUrl = track.baseUrl.replace('&fmt=srv3', '');
+        break;
+      }
+    }
+    if (!captionUrl) {
+      // Fallback to first available caption track
+      captionUrl = captions.captionTracks[0].baseUrl.replace('&fmt=srv3', '');
+    }
+
+    // Step 6: Fetch transcript XML
+    const transcriptRes = await fetch(captionUrl, {
+      signal: AbortSignal.timeout(10000),
+    });
+    const transcriptXml = await transcriptRes.text();
+
+    // Step 7: Parse XML to extract text
+    const textSegments = [];
+    const textRegex = /<text[^>]*>([\s\S]*?)<\/text>/g;
+    let match;
+    while ((match = textRegex.exec(transcriptXml)) !== null) {
+      const text = match[1]
+        .replace(/&amp;/g, '&')
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/<[^>]+>/g, '');
+      if (text.trim()) {
+        textSegments.push(text);
+      }
+    }
+
+    if (textSegments.length === 0) {
+      throw new Error('Could not parse transcript XML');
+    }
+
+    return textSegments.join(' ');
+  } catch (e) {
+    console.error('[fetchYouTubeTranscript] Error for video', videoId, ':', e.message);
+    throw e;
+  }
+}
+__name(fetchYouTubeTranscript, 'fetchYouTubeTranscript');
+
 
 async function fetchNewsData(env) {
   try {
@@ -2164,20 +2252,14 @@ var worker_default = {
           if (cached) {
             return new Response(JSON.stringify({ summary: cached, cached: true }), { headers: { "Content-Type": "application/json" } });
           }
-          // Step 1: Fetch transcript from Pi's transcript API via Cloudflare Tunnel
-          const TRANSCRIPT_API = "https://celebration-suggested-nurse-estimated.trycloudflare.com/transcript";
-          const transcriptRes = await fetch(TRANSCRIPT_API, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ videoId }),
-            signal: AbortSignal.timeout(15000)
-          });
-          const transcriptData = await transcriptRes.json();
-          if (transcriptData.error) {
-            return new Response(JSON.stringify({ error: "Transcript fetch failed: " + transcriptData.error }), { status: 502, headers: { "Content-Type": "application/json" } });
+          // Step 1: Fetch transcript directly from YouTube's internal API (no Pi 5)
+          let transcriptText;
+          try {
+            transcriptText = await fetchYouTubeTranscript(videoId);
+          } catch (transcriptErr) {
+            return new Response(JSON.stringify({ error: "Transcript fetch failed: " + transcriptErr.message }), { status: 502, headers: { "Content-Type": "application/json" } });
           }
-          let transcriptText = transcriptData.text || "";
-          if (transcriptText.length < 20) {
+          if (!transcriptText || transcriptText.length < 20) {
             return new Response(JSON.stringify({ error: "Transcript too short or empty" }), { status: 404, headers: { "Content-Type": "application/json" } });
           }
           // Trim to max 6000 chars to avoid AI input limits
