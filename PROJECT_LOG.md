@@ -1,8 +1,8 @@
 ---
 project: ai-news-digest
 status: active
-last_deploy: 2026-06-21T08:30:41+08:00
-last_version: d4c3193
+last_deploy: 2026-06-21T08:40:23+08:00
+last_version: 1c58d45
 last_update_by: HermesBPi
 ---
 
@@ -119,7 +119,7 @@ npx wrangler kv key get news-data --namespace-id=b8dfffba53d249e2a6a73e60774217d
 4. **Blog KV**: deploy.sh 自動 upload `blog-posts.json` → KV
 
 ---
-*最後更新: 2026-06-21 08:30 HKT by HermesBPi*
+*最後更新: 2026-06-21 08:40 HKT by HermesBPi*
 
 ## 2026-06-03 08:06
 - **Type**: 優化
@@ -523,3 +523,10 @@ quick tunnel regenerated after service migration, new URL: celebration-suggested
 - **Details**:
 tunnel URL changed, auto-deployed by monitor
 - **Version**: d4c3193
+
+## 2026-06-21 08:40
+- **Type**: 修復
+- **Summary**: 影片 AI Digest 按鈕：總結後 reset 文字改為 AI Digest
+- **Details**:
+將 JS fetchVideoSummary() 內 3 處 btn.textContent 由「🧠 摘要」改為「🧠 AI Digest」
+- **Version**: 1c58d45
