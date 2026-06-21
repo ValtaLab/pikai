@@ -1849,10 +1849,9 @@ __name(fetchYouTubeVideos, 'fetchYouTubeVideos');
 const YT_INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
 
 async function fetchYouTubeTranscript(videoId) {
-  // Fetch transcript directly from YouTube's internal API — no Pi 5 needed
-  // Skip HTML page scraping (unreliable from Workers); use hardcoded key + multiple clients
+  // Fetch transcript directly from YouTube — try multiple methods
   
-  // Try different client configurations in case one is blocked
+  // Try different client configurations for InnerTube API
   const clients = [
     { clientName: 'ANDROID', clientVersion: '20.10.38' },
     { clientName: 'ANDROID', clientVersion: '19.09.35' },
@@ -1879,7 +1878,6 @@ async function fetchYouTubeTranscript(videoId) {
         },
       );
 
-      // If YouTube returns HTML, this client config is blocked — try next
       const contentType = playerRes.headers.get('content-type') || '';
       if (contentType.includes('text/html')) {
         console.warn('[fetchYouTubeTranscript] Bot block for client', client.clientName);
@@ -1887,65 +1885,101 @@ async function fetchYouTubeTranscript(videoId) {
       }
 
       const playerData = await playerRes.json();
-
-      // Extract caption tracks
       const captions = playerData?.captions?.playerCaptionsTracklistRenderer;
-      if (!captions?.captionTracks?.length) {
-        throw new Error('No captions available for this video');
+      if (captions?.captionTracks?.length) {
+        return await parseCaptions(captions);
       }
-
-      // Find best matching caption (prefer English)
-      const preferredLangs = ['en', 'en-US', 'en-GB', 'en-CA', 'en-AU'];
-      let captionUrl = null;
-      for (const track of captions.captionTracks) {
-        if (preferredLangs.includes(track.languageCode)) {
-          captionUrl = track.baseUrl.replace('&fmt=srv3', '');
-          break;
-        }
-      }
-      if (!captionUrl) {
-        captionUrl = captions.captionTracks[0].baseUrl.replace('&fmt=srv3', '');
-      }
-
-      // Fetch transcript XML
-      const transcriptRes = await fetch(captionUrl, {
-        signal: AbortSignal.timeout(10000),
-      });
-      const transcriptXml = await transcriptRes.text();
-
-      // Parse XML to extract text
-      const textSegments = [];
-      const textRegex = /<text[^>]*>([\s\S]*?)<\/text>/g;
-      let match;
-      while ((match = textRegex.exec(transcriptXml)) !== null) {
-        const text = match[1]
-          .replace(/&amp;/g, '&')
-          .replace(/&#39;/g, "'")
-          .replace(/&quot;/g, '"')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/<[^>]+>/g, '');
-        if (text.trim()) {
-          textSegments.push(text);
-        }
-      }
-
-      if (textSegments.length === 0) {
-        throw new Error('Could not parse transcript XML');
-      }
-
-      return textSegments.join(' ');
+      // If no captions from InnerTube API, try HTML page method below
     } catch (e) {
-      // If "no captions", that's definitive — don't retry
-      if (e.message === 'No captions available for this video') {
-        throw e;
-      }
+      if (e.message === 'No captions available for this video') throw e;
       console.warn('[fetchYouTubeTranscript] Client', client.clientName, 'failed:', e.message);
-      // Otherwise continue to next client
     }
   }
 
-  throw new Error('All client configurations blocked — YouTube may be blocking this Worker IP');
+  // Fallback 2: Fetch video HTML page and extract captions from ytInitialPlayerResponse
+  try {
+    console.log('[fetchYouTubeTranscript] Trying HTML page method for', videoId);
+    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    const html = await pageRes.text();
+    const match = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/);
+    if (match) {
+      const pageData = JSON.parse(match[1]);
+      const captions = pageData?.captions?.playerCaptionsTracklistRenderer;
+      if (captions?.captionTracks?.length) {
+        return await parseCaptions(captions);
+      }
+    }
+  } catch (e) {
+    console.warn('[fetchYouTubeTranscript] HTML page method failed:', e.message);
+  }
+
+  // Fallback 3: Try youtubetranscript.com (3rd party transcript API)
+  try {
+    console.log('[fetchYouTubeTranscript] Trying youtubetranscript.com for', videoId);
+    const trRes = await fetch(`https://youtubetranscript.com/?v=${videoId}`, {
+      signal: AbortSignal.timeout(10000),
+    });
+    if (trRes.ok) {
+      const trData = await trRes.json();
+      if (Array.isArray(trData) && trData.length > 0) {
+        return trData.map(s => s.text).join(' ');
+      }
+    }
+  } catch (e) {
+    console.warn('[fetchYouTubeTranscript] youtubetranscript.com failed:', e.message);
+  }
+
+  throw new Error('No captions available for this video');
+}
+
+async function parseCaptions(captions) {
+  // Find best matching caption (prefer English)
+  const preferredLangs = ['en', 'en-US', 'en-GB', 'en-CA', 'en-AU'];
+  let captionUrl = null;
+  for (const track of captions.captionTracks) {
+    if (preferredLangs.includes(track.languageCode)) {
+      captionUrl = track.baseUrl.replace('&fmt=srv3', '');
+      break;
+    }
+  }
+  if (!captionUrl) {
+    captionUrl = captions.captionTracks[0].baseUrl.replace('&fmt=srv3', '');
+  }
+
+  // Fetch transcript XML
+  const transcriptRes = await fetch(captionUrl, {
+    signal: AbortSignal.timeout(10000),
+  });
+  const transcriptXml = await transcriptRes.text();
+
+  // Parse XML to extract text
+  const textSegments = [];
+  const textRegex = /<text[^>]*>([\s\S]*?)<\/text>/g;
+  let match;
+  while ((match = textRegex.exec(transcriptXml)) !== null) {
+    const text = match[1]
+      .replace(/&amp;/g, '&')
+      .replace(/&#39;/g, "'")
+      .replace(/&quot;/g, '"')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/<[^>]+>/g, '');
+    if (text.trim()) {
+      textSegments.push(text);
+    }
+  }
+
+  if (textSegments.length === 0) {
+    throw new Error('Could not parse transcript XML');
+  }
+
+  return textSegments.join(' ');
 }
 __name(fetchYouTubeTranscript, 'fetchYouTubeTranscript');
 
