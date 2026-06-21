@@ -1856,6 +1856,8 @@ async function fetchYouTubeTranscript(videoId) {
     { clientName: 'ANDROID', clientVersion: '20.10.38' },
     { clientName: 'ANDROID', clientVersion: '19.09.35' },
     { clientName: 'WEB',      clientVersion: '2.20240101' },
+    { clientName: 'IOS',      clientVersion: '19.29.1' },
+    { clientName: 'ANDROID_MUSIC', clientVersion: '7.21.1' },
   ];
 
   for (const client of clients) {
@@ -1899,17 +1901,30 @@ async function fetchYouTubeTranscript(videoId) {
   // Fallback 2: Fetch video HTML page and extract captions from ytInitialPlayerResponse
   try {
     console.log('[fetchYouTubeTranscript] Trying HTML page method for', videoId);
-    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.165 Mobile Safari/537.36',
         'Accept-Language': 'en-US,en;q=0.9',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
       signal: AbortSignal.timeout(15000),
     });
     const html = await pageRes.text();
-    const match = html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});/);
-    if (match) {
-      const pageData = JSON.parse(match[1]);
+    // Extract ytInitialPlayerResponse JSON (ends at ;\n)
+    const start = html.indexOf('ytInitialPlayerResponse = ');
+    if (start !== -1) {
+      const jsonStart = start + 'ytInitialPlayerResponse = '.length;
+      let braceCount = 0;
+      let jsonEnd = jsonStart;
+      for (let i = jsonStart; i < html.length; i++) {
+        if (html[i] === '{') braceCount++;
+        else if (html[i] === '}') {
+          braceCount--;
+          if (braceCount === 0) { jsonEnd = i + 1; break; }
+        }
+      }
+      const jsonStr = html.substring(jsonStart, jsonEnd);
+      const pageData = JSON.parse(jsonStr);
       const captions = pageData?.captions?.playerCaptionsTracklistRenderer;
       if (captions?.captionTracks?.length) {
         return await parseCaptions(captions);
@@ -1919,14 +1934,16 @@ async function fetchYouTubeTranscript(videoId) {
     console.warn('[fetchYouTubeTranscript] HTML page method failed:', e.message);
   }
 
-  // Fallback 3: Try youtubetranscript.com (3rd party transcript API)
+  // Fallback 3: Try youtubetranscript.com JSON endpoint (different path)
   try {
-    console.log('[fetchYouTubeTranscript] Trying youtubetranscript.com for', videoId);
+    console.log('[fetchYouTubeTranscript] Trying youtubetranscript.com API for', videoId);
     const trRes = await fetch(`https://youtubetranscript.com/?v=${videoId}`, {
+      headers: { 'Accept': 'application/json' },
       signal: AbortSignal.timeout(10000),
     });
-    if (trRes.ok) {
-      const trData = await trRes.json();
+    const trText = await trRes.text();
+    if (trText.startsWith('[')) {
+      const trData = JSON.parse(trText);
       if (Array.isArray(trData) && trData.length > 0) {
         return trData.map(s => s.text).join(' ');
       }
