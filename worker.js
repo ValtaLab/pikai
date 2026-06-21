@@ -2264,7 +2264,7 @@ var worker_default = {
             return new Response(JSON.stringify({ error: "Invalid video ID" }), { status: 400, headers: { "Content-Type": "application/json" } });
           }
           // Check KV cache first
-          const cacheKey = "video-summary:" + videoId;
+          const cacheKey = "video-summary:v2:" + videoId;
           const cached = await env.AI_NEWS_KV.get(cacheKey);
           if (cached) {
             return new Response(JSON.stringify({ summary: cached, cached: true }), { headers: { "Content-Type": "application/json" } });
@@ -2284,10 +2284,10 @@ var worker_default = {
             transcriptText = transcriptText.substring(0, 6000) + "...";
           }
           // Step 5: Call Workers AI to summarize in Traditional Chinese
-          const prompt = "你係專業嘅AI助手。請用繁體中文總結以下YouTube影片嘅字幕，要點清晰，保持關鍵技術細節，約100-150字。\n\n字幕：" + transcriptText;
+          const prompt = "你係專業嘅AI助手。請用繁體中文總結以下YouTube影片嘅字幕，格式如下：\n\n【重點整理】\n• （第一個重點）\n• （第二個重點）\n• （第三個重點）\n• （如此類推）\n\n要求：\n- 每個重點用 • 開頭，一句話講完\n- 保持關鍵技術細節\n- 總字數約300-800字，視乎內容豐富程度\n- 最少列出3個重點，最多8個\n\n字幕：" + transcriptText;
           const aiResult = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
             messages: [{ role: 'user', content: prompt }],
-            max_tokens: 500
+            max_tokens: 1200
           });
           let summary = "";
           if (typeof aiResult === 'string') {
@@ -2592,7 +2592,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".video-ai-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 5px 12px; background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; border: none; border-radius: 20px; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }";
   html += ".video-ai-btn:hover { opacity: 0.85; }";
   html += ".video-ai-btn:disabled { opacity: 0.5; cursor: wait; }";
-  html += ".video-ai-summary { margin-top: 8px; padding: 10px 12px; background: #f0f4ff; border-radius: 10px; font-size: 0.88rem; color: #333; line-height: 1.6; display: none; border-left: 3px solid #0066ff; }";
+  html += ".video-ai-summary { margin-top: 8px; padding: 10px 12px; background: #f0f4ff; border-radius: 10px; font-size: 0.88rem; color: #333; line-height: 1.6; display: none; border-left: 3px solid #0066ff; text-align: left; }";
   html += ".video-ai-summary.visible { display: block; }";
   html += ".video-ai-summary .ai-label { font-size: 0.72rem; color: #0066ff; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }";
   html += ".video-ai-error { color: #dc3545; font-size: 0.82rem; margin-top: 6px; }";

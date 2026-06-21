@@ -3,10 +3,10 @@
 ## 基本資訊
 
 **名稱：** AI News Digest
-**網址：** https://ai-news-digest.isearover.workers.dev/
+**網址：** https://pikai.isearover.workers.dev/
 **代碼位置：** `/home/blackpi/ai-news-webapp/`
-**部署方式：** `./deploy.sh` (wrangler deploy + ?refresh=1 測試)
-**最後更新：** 2026-04-24
+**部署方式：** `git push origin master` → GitHub Actions auto-deploy（CI down 時可用 `./deploy.sh` 緊急部署）
+**最後更新：** 2026-06-21
 
 ## 功能概覽
 
@@ -58,9 +58,10 @@
 - **依賴：** 無外部npm包（純CF Workers兼容代碼）
 
 ### 部署
-- **命令：** `./deploy.sh`
-- **流程：** ESLint檢查 → `wrangler deploy` → `?refresh=1` 健康檢查
-- **Worker名稱：** ai-news-digest
+- **命令：** `git push origin master`（GitHub Actions auto-deploy）
+- **流程：** push → GitHub Actions lint → wrangler deploy → curl verify
+- **緊急：** `./deploy.sh`（CI down 時，需 announce first）
+- **Worker名稱：** pikai
 
 ## 已修復的問題
 

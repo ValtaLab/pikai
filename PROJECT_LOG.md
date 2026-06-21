@@ -96,8 +96,10 @@ last_update_by: HermesBPi
 ## 🛠️ 維護命令
 
 ```bash
-# 部署
-cd /home/blackpi/ai-news-webapp && ./deploy.sh
+# 部署（經 GitHub CI）
+git add -A && git commit -m "你的改動描述"
+git push origin master
+# GitHub Actions 會自動 lint + deploy + verify
 
 # 強制 YouTube 刷新
 curl -s "https://pikai.isearover.workers.dev/trigger-youtube"
