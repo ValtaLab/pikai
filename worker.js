@@ -2621,7 +2621,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     minute: "2-digit",
     timeZone: "Asia/Hong_Kong"
   });
-  let html = '<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><meta name="theme-color" content="#fafbfc"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="PikAI"><link rel="manifest" href="/manifest.json?v=12"><link rel="icon" type="image/png" href="/icon-192.png?v=4"><link rel="apple-touch-icon" href="/icon-192.png?v=4"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Honk&family=Pliant:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"><title>PikAI</title><style>';
+  let html = '<!DOCTYPE html><html lang="zh-TW"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"><meta name="theme-color" content="#fafbfc"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black"><meta name="apple-mobile-web-app-title" content="PikAI"><link rel="manifest" href="/manifest.json?v=12"><link rel="icon" type="image/png" href="/icon-192.png?v=4"><link rel="apple-touch-icon" href="/icon-192.png?v=4"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Pliant:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"><title>PikAI</title><style>';
   html += "* { box-sizing: border-box; margin: 0; padding: 0; }";
   html += 'body { font-family: "Pliant", "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif; background: #fafbfc; color: #0f172a; line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-x: hidden; }';
   html += ".container { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1rem; }";
@@ -2630,10 +2630,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".hero-grid::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(14,165,233,0.06) 0%, transparent 60%); }";
   html += "@keyframes gridDrift { 0% { transform: translate(0,0); } 100% { transform: translate(60px,60px); } }";
   html += ".hero-content { position: relative; z-index: 1; }";
-  html += ".logo-wrap { font-family: 'Honk', 'Noto Sans SC', sans-serif; font-size: 52px; font-weight: 600; letter-spacing: -2px; margin-bottom: 20px; display: inline-flex; align-items: center; gap: 2px; }";
-  html += ".logo-pik { color: #0f172a; font-weight: 700; }";
-  html += ".logo-ai { color: #0ea5e9; font-weight: 700; }";
-  html += ".logo-divider { display: inline-block; width: 2px; height: 32px; background: linear-gradient(to bottom, transparent, #94a3b8, transparent); margin: 0 8px; vertical-align: middle; }";
+  html += ".logo-svg { display: inline-block; vertical-align: middle; width: 220px; height: 56px; margin-bottom: 6px; }";
   html += ".hero-subtitle { font-size: 15px; color: #475569; font-weight: 400; letter-spacing: 0.3px; margin-bottom: 0; }";
   html += ".refresh-badge { display: none; }";
   html += ".loading-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #fafbfc 0%, #e4e8ec 100%); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: opacity 0.5s; }";
@@ -2782,7 +2779,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += '<div class="hero">';
   html += '<div class="hero-grid"></div>';
   html += '<div class="hero-content">';
-  html += '<div class="logo-wrap"><span class="logo-pik">Pik</span><span class="logo-divider"></span><span class="logo-ai">AI</span></div>';
+  html += '<svg class="logo-svg" viewBox="0 0 260 64"><text x="0" y="46" fill="#0f172a" font-family="Pliant, Noto Sans SC, sans-serif" font-weight="700" font-size="42" letter-spacing="-2">Pik</text><line x1="105" y1="10" x2="105" y2="50" stroke="#94a3b8" stroke-width="1.5" opacity="0.4"/><text x="118" y="46" fill="#0ea5e9" font-family="Pliant, Noto Sans SC, sans-serif" font-weight="700" font-size="42" letter-spacing="1">AI</text></svg>';
   html += '<p class="hero-subtitle">' + lastUpdated + '</p>';
   html += '</div>';
   html += '</div>';
