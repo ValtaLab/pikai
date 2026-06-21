@@ -1,8 +1,8 @@
 ---
 project: ai-news-digest
 status: active
-last_deploy: 2026-06-21T01:05:51+08:00
-last_version: efaedf6
+last_deploy: 2026-06-21T01:36:00+08:00
+last_version: 20425a9
 last_update_by: HermesBPi
 ---
 
@@ -37,6 +37,22 @@ last_update_by: HermesBPi
 ---
 
 ## 📝 變更歷史
+
+### 2026-06-21 | Bypass Pi 5 — YouTube transcript 直接由 Worker 處理
+**版本:** 20425a9
+- **Type**: 優化
+- **Summary**: Bypass Pi 5 — transcript 直接由 Worker call YouTube internal API
+- **Details**:
+  - 新增 `fetchYouTubeTranscript()` function，取代舊有 Pi 5 Cloudflare Tunnel 方式
+  - 直接 call YouTube inner API (`youtubei/v1/player`) 拎 caption tracks
+  - Hardcode YouTube INNERTUBE API key (公知 key，從 YouTube page 提取)，skip HTML scraping
+  - Multiple client fallback (ANDROID 20.10.38 → 19.09.35 → WEB)
+  - 加 Android origin headers 提升成功率
+  - 完全移除對 Pi 5 transcript-api.py 嘅依賴
+  - 保持 Workers AI 總結 + KV 30 天 cache 不變
+  - 直接 deploy 前: `dQw4w9WgXcQ` cached ✅ | `Db260rUuKJg` 249 chars ✅ | `eIqa3XQIbvk` 269 chars ✅ | `GcCGzfKdCd0` cached ✅
+  - 約 40-50% videos 直接 work（YouTube 對 CF Workers IP 有限制，部分 videos 冇 caption data）
+  - `transcript-api.py` on Pi 5 可以考慮停用
 
 ### 2026-06-06 | 修復影片 tab 非白名單影片滲透 bug
 **版本:** d9ba715a  

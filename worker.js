@@ -2588,6 +2588,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".summarized-title { font-size: 1.14rem; color: #222; line-height: 1.4; margin-bottom: 0.5rem; font-weight: 600; }";
   html += ".video-title { font-size: 1.05rem; color: #222; line-height: 1.45; margin-bottom: 0.5rem; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }";
   html += ".summarized-text { font-size: 1.02rem; color: #555; line-height: 1.5; }";
+  html += ".video-ai-wrap { text-align: right; }";
   html += ".video-ai-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 5px 12px; background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; border: none; border-radius: 20px; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }";
   html += ".video-ai-btn:hover { opacity: 0.85; }";
   html += ".video-ai-btn:disabled { opacity: 0.5; cursor: wait; }";
@@ -2745,7 +2746,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       html += '<div class="summarized-content">';
       html += '<div class="summarized-source">' + escapeHtml(video.channel) + ' · ' + escapeHtml(video.viewCount) + ' views · ' + escapeHtml(video.duration) + '</div>';
       html += '<div class="video-title">' + escapeHtml(video.title) + '</div>';
-      html += '<div class="video-ai-wrap"><button class="video-ai-btn" onclick="event.stopPropagation();fetchVideoSummary(this,\'' + videoId + '\')">&#x1F9E0; &#x6458;&#x8981;</button><div class="video-ai-summary" id="ai-summary-' + videoId + '"><div class="ai-label">&#x1F916; AI &#x7E3D;&#x7D50;</div><div class="video-ai-body"></div></div><div class="video-ai-error" id="ai-error-' + videoId + '"></div></div>';
+      html += '<div class="video-ai-wrap"><button class="video-ai-btn" onclick="event.stopPropagation();fetchVideoSummary(this,\'' + videoId + '\')">&#x1F9E0; AI Digest</button><div class="video-ai-summary" id="ai-summary-' + videoId + '"><div class="ai-label">&#x1F916; AI &#x7E3D;&#x7D50;</div><div class="video-ai-body"></div></div><div class="video-ai-error" id="ai-error-' + videoId + '"></div></div>';
       html += '</div></div>';
     });
     html += '</div></div>';
