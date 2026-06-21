@@ -1848,10 +1848,86 @@ __name(fetchYouTubeVideos, 'fetchYouTubeVideos');
 // This key is extracted from youtube.com and used by many open‑source projects
 const YT_INNERTUBE_API_KEY = 'AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8';
 
-async function fetchYouTubeTranscript(videoId) {
-  // Fetch transcript directly from YouTube — try multiple methods
-  
-  // Try different client configurations for InnerTube API
+async function fetchFromSupadata(videoId, env) {
+  const apiKey = env?.SUPADATA_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const resp = await fetch(
+      `https://api.supadata.ai/v1/youtube/transcript?videoId=${videoId}&text=true`,
+      {
+        headers: { 'x-api-key': apiKey },
+        signal: AbortSignal.timeout(15000),
+      },
+    );
+    if (!resp.ok) {
+      console.warn('[fetchFromSupadata] HTTP', resp.status, 'for', videoId);
+      return null;
+    }
+    const data = await resp.json();
+    // Supadata can return: { content: [{ text, offset, duration }] } or { transcript: "..." }
+    if (Array.isArray(data.content) && data.content.length > 0) {
+      return data.content.map(c => c.text).join(' ');
+    }
+    if (data.transcript) return data.transcript;
+    return null;
+  } catch (e) {
+    console.warn('[fetchFromSupadata] Failed:', videoId, e.message);
+    return null;
+  }
+}
+
+async function fetchYouTubeTranscript(videoId, env) {
+  // Layer 0: KV Cache (30 days)
+  const kvKey = `transcript:${videoId}`;
+  if (env?.AI_NEWS_KV) {
+    const cached = await env.AI_NEWS_KV.get(kvKey);
+    if (cached) {
+      console.log('[fetchYouTubeTranscript] KV HIT for', videoId);
+      return cached;
+    }
+  }
+
+  // Layer 1: Supadata API (primary, ~95% success, free 100 credits/month)
+  const supadataText = await fetchFromSupadata(videoId, env);
+  if (supadataText) {
+    await cacheTranscript(kvKey, supadataText, env);
+    return supadataText;
+  }
+
+  // Layer 2: InnerTube API (5 clients)
+  let transcript = await tryInnerTube(videoId);
+  if (transcript) {
+    await cacheTranscript(kvKey, transcript, env);
+    return transcript;
+  }
+
+  // Layer 3: HTML page scrape
+  transcript = await tryHtmlPage(videoId);
+  if (transcript) {
+    await cacheTranscript(kvKey, transcript, env);
+    return transcript;
+  }
+
+  // Layer 4: youtubetranscript.com
+  transcript = await tryYoutubetranscript(videoId);
+  if (transcript) {
+    await cacheTranscript(kvKey, transcript, env);
+    return transcript;
+  }
+
+  throw new Error('No captions available for this video');
+}
+
+async function cacheTranscript(kvKey, text, env) {
+  if (!env?.AI_NEWS_KV) return;
+  try {
+    await env.AI_NEWS_KV.put(kvKey, text, { expirationTtl: 2592000 }); // 30 days
+  } catch (e) {
+    console.warn('[cacheTranscript] KV put failed:', e.message);
+  }
+}
+
+async function tryInnerTube(videoId) {
   const clients = [
     { clientName: 'ANDROID', clientVersion: '20.10.38' },
     { clientName: 'ANDROID', clientVersion: '19.09.35' },
@@ -1872,35 +1948,28 @@ async function fetchYouTubeTranscript(videoId) {
             'X-YouTube-Client-Name': client.clientName === 'ANDROID' ? '3' : '1',
             'X-YouTube-Client-Version': client.clientVersion,
           },
-          body: JSON.stringify({
-            context: { client },
-            videoId: videoId,
-          }),
+          body: JSON.stringify({ context: { client }, videoId }),
           signal: AbortSignal.timeout(10000),
         },
       );
 
       const contentType = playerRes.headers.get('content-type') || '';
-      if (contentType.includes('text/html')) {
-        console.warn('[fetchYouTubeTranscript] Bot block for client', client.clientName);
-        continue;
-      }
+      if (contentType.includes('text/html')) continue;
 
       const playerData = await playerRes.json();
       const captions = playerData?.captions?.playerCaptionsTracklistRenderer;
       if (captions?.captionTracks?.length) {
         return await parseCaptions(captions);
       }
-      // If no captions from InnerTube API, try HTML page method below
     } catch (e) {
-      if (e.message === 'No captions available for this video') throw e;
-      console.warn('[fetchYouTubeTranscript] Client', client.clientName, 'failed:', e.message);
+      console.warn('[tryInnerTube] Client', client.clientName, 'failed:', e.message);
     }
   }
+  return null;
+}
 
-  // Fallback 2: Fetch video HTML page and extract captions from ytInitialPlayerResponse
+async function tryHtmlPage(videoId) {
   try {
-    console.log('[fetchYouTubeTranscript] Trying HTML page method for', videoId);
     const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.6422.165 Mobile Safari/537.36',
@@ -1910,33 +1979,27 @@ async function fetchYouTubeTranscript(videoId) {
       signal: AbortSignal.timeout(15000),
     });
     const html = await pageRes.text();
-    // Extract ytInitialPlayerResponse JSON (ends at ;\n)
     const start = html.indexOf('ytInitialPlayerResponse = ');
     if (start !== -1) {
       const jsonStart = start + 'ytInitialPlayerResponse = '.length;
-      let braceCount = 0;
-      let jsonEnd = jsonStart;
+      let braceCount = 0, jsonEnd = jsonStart;
       for (let i = jsonStart; i < html.length; i++) {
         if (html[i] === '{') braceCount++;
-        else if (html[i] === '}') {
-          braceCount--;
-          if (braceCount === 0) { jsonEnd = i + 1; break; }
-        }
+        else if (html[i] === '}') { braceCount--; if (braceCount === 0) { jsonEnd = i + 1; break; } }
       }
       const jsonStr = html.substring(jsonStart, jsonEnd);
       const pageData = JSON.parse(jsonStr);
       const captions = pageData?.captions?.playerCaptionsTracklistRenderer;
-      if (captions?.captionTracks?.length) {
-        return await parseCaptions(captions);
-      }
+      if (captions?.captionTracks?.length) return await parseCaptions(captions);
     }
   } catch (e) {
-    console.warn('[fetchYouTubeTranscript] HTML page method failed:', e.message);
+    console.warn('[tryHtmlPage] Failed:', videoId, e.message);
   }
+  return null;
+}
 
-  // Fallback 3: Try youtubetranscript.com JSON endpoint (different path)
+async function tryYoutubetranscript(videoId) {
   try {
-    console.log('[fetchYouTubeTranscript] Trying youtubetranscript.com API for', videoId);
     const trRes = await fetch(`https://youtubetranscript.com/?v=${videoId}`, {
       headers: { 'Accept': 'application/json' },
       signal: AbortSignal.timeout(10000),
@@ -1944,15 +2007,12 @@ async function fetchYouTubeTranscript(videoId) {
     const trText = await trRes.text();
     if (trText.startsWith('[')) {
       const trData = JSON.parse(trText);
-      if (Array.isArray(trData) && trData.length > 0) {
-        return trData.map(s => s.text).join(' ');
-      }
+      if (Array.isArray(trData) && trData.length > 0) return trData.map(s => s.text).join(' ');
     }
   } catch (e) {
-    console.warn('[fetchYouTubeTranscript] youtubetranscript.com failed:', e.message);
+    console.warn('[tryYoutubetranscript] Failed:', videoId, e.message);
   }
-
-  throw new Error('No captions available for this video');
+  return null;
 }
 
 async function parseCaptions(captions) {
@@ -2323,7 +2383,7 @@ var worker_default = {
           // Step 1: Fetch transcript directly from YouTube's internal API (no Pi 5)
           let transcriptText;
           try {
-            transcriptText = await fetchYouTubeTranscript(videoId);
+            transcriptText = await fetchYouTubeTranscript(videoId, env);
           } catch (transcriptErr) {
             return new Response(JSON.stringify({ error: "Transcript fetch failed: " + transcriptErr.message }), { status: 502, headers: { "Content-Type": "application/json" } });
           }
