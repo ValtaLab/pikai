@@ -1,8 +1,8 @@
 ---
 project: ai-news-digest
 status: active
-last_deploy: 2026-06-21T01:36:00+08:00
-last_version: 20425a9
+last_deploy: 2026-06-21T08:30:41+08:00
+last_version: d4c3193
 last_update_by: HermesBPi
 ---
 
@@ -119,7 +119,7 @@ npx wrangler kv key get news-data --namespace-id=b8dfffba53d249e2a6a73e60774217d
 4. **Blog KV**: deploy.sh 自動 upload `blog-posts.json` → KV
 
 ---
-*最後更新: 2026-06-21 01:05 HKT by HermesBPi*
+*最後更新: 2026-06-21 08:30 HKT by HermesBPi*
 
 ## 2026-06-03 08:06
 - **Type**: 優化
@@ -516,3 +516,10 @@ quick tunnel regenerated, update worker.js to keep transcript API working
 - **Details**:
 quick tunnel regenerated after service migration, new URL: celebration-suggested-nurse-estimated.trycloudflare.com
 - **Version**: efaedf6
+
+## 2026-06-21 08:30
+- **Type**: 修復
+- **Summary**: auto-update tunnel URL
+- **Details**:
+tunnel URL changed, auto-deployed by monitor
+- **Version**: d4c3193
