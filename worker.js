@@ -1864,7 +1864,11 @@ async function fetchFromSupadata(videoId, env) {
       return null;
     }
     const data = await resp.json();
-    // Supadata can return: { content: [{ text, offset, duration }] } or { transcript: "..." }
+    // Supadata with text=true returns: { lang, availableLangs, content: "full text..." }
+    // Without text=true: { content: [{ text, offset, duration }] }
+    if (typeof data.content === 'string' && data.content.length > 0) {
+      return data.content;
+    }
     if (Array.isArray(data.content) && data.content.length > 0) {
       return data.content.map(c => c.text).join(' ');
     }
