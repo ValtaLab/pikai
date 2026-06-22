@@ -102,7 +102,7 @@ async function batchSummarizeWithWorkersAI(articles, env) {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent }
       ],
-      max_tokens: 4000,
+      max_tokens: 8000,
       temperature: 0.3
     });
     clearTimeout(timeoutId);
@@ -141,15 +141,14 @@ async function batchSummarizeWithWorkersAI(articles, env) {
         let headline = item.headline || item.title || '';
         let summary = item.summary || item.content || '';
         
-        // Quality check
+        // Quality check — flag but don't blank; let downstream decide
         const hasBadPattern = badPatterns.some(p => p.test(headline));
         const hasChinese = /[\u4e00-\u9fff]/.test(headline);
         let qualityFlag = 'ok';
-        if (!headline || !hasChinese || hasBadPattern || headline.length > 60 || (headline.length > 0 && headline.length < 8)) {
+        if (!headline || !hasChinese || hasBadPattern || headline.length > 80 || (headline.length > 0 && headline.length < 4)) {
           qualityFlag = 'bad_headline';
-          headline = '';
         }
-        if (!summary || summary.length < 10) qualityFlag = 'too_short';
+        if (!summary || summary.length < 5) qualityFlag = 'too_short';
         
         return { translatedTitle: headline, summary, qualityFlag };
       });
@@ -2211,6 +2210,17 @@ async function fetchNewsData(env) {
               const summary = sRes.success ? sRes.text : '';
               if (summary && /[\u4e00-\u9fff]/.test(summary)) {
                 result = { translatedTitle, summary, qualityFlag: 'mymemory' };
+              }
+            }
+            // Ultimate fallback: use raw description extract as summary
+            if (!result.summary) {
+              const extract = (item.description || item.summary || '').substring(0, 150);
+              if (extract.length > 20) {
+                result = {
+                  translatedTitle: result.translatedTitle || '',
+                  summary: extract,
+                  qualityFlag: 'raw_extract'
+                };
               }
             }
 
