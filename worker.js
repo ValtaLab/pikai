@@ -795,6 +795,28 @@ async function translateWithMyMemory(text, fromLang = "en", toLang = "zh-TW") {
 }
 __name(translateWithMyMemory, "translateWithMyMemory");
 
+async function translateWithOpenRouter(text, env) {
+  if (!text || text.length < 2) return { success: false, text: null };
+  try {
+    const prompt = `Translate the following English text to Traditional Chinese (繁體中文). Output ONLY the translation, no explanations, no notes.\n\n${text.substring(0, 500)}`;
+    const result = await callOpenRouterFree(prompt, env.OPENROUTER_API_KEY, 300);
+    if (result.success && result.text) {
+      const translated = result.text.trim().replace(/^["']|["']$/g, '');
+      const hasChinese = /[\u4e00-\u9fff]/.test(translated);
+      if (hasChinese || text.length <= 5) {
+        return { success: true, text: translated };
+      }
+      console.log(`[OpenRouter] No Chinese in result: ${translated.substring(0, 30)}...`);
+      return { success: false, text: null, error: "no_chinese_output" };
+    }
+    return { success: false, text: null, error: "openrouter_failed" };
+  } catch (e) {
+    console.log(`[OpenRouter] Translation error: ${e.message}`);
+    return { success: false, text: null, error: e.message };
+  }
+}
+__name(translateWithOpenRouter, "translateWithOpenRouter");
+
 async function translateNews(newsItems, env) {
   // Translate titles to Chinese using Workers AI
   // This ensures all news titles display in Chinese
@@ -2171,14 +2193,26 @@ async function fetchNewsData(env) {
               result = { ...result, translatedTitle: '', qualityFlag: 'non_chinese_title' };
             }
 
-            if (!result.summary && env.NVIDIA_API_KEY) {
-              console.log(`[Workers AI] Failed, trying NVIDIA for: ${item.title.substring(0, 40)}...`);
-              const prompt = `標題：${item.title}\n內容：${item.description || ''}\n\n請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。\n\n【標題翻譯原則】\n- 唔好直譯！要理解原文意思後，用自然嘅中文重新表達\n- 保留英文名稱（公司名、產品名、技術名詞）\n- 避免語序混亂、缺主語、缺謂語嘅問題\n\n格式：\n標題：[中文標題]\n總結：[總結內容]`;
-              const nvidiaResult = await callNvidiaAPI(prompt, env.NVIDIA_API_KEY, 500);
-              if (nvidiaResult.success) {
-                const text = nvidiaResult.text;
+            if (!result.summary) {
+              console.log(`[Workers AI] Failed, trying OpenRouter for: ${item.title.substring(0, 40)}...`);
+              const prompt = `標題：${item.title}
+內容：${item.description || ''}
+
+請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。
+
+【標題翻譯原則】
+- 唔好直譯！要理解原文意思後，用自然嘅中文重新表達
+- 保留英文名稱（公司名、產品名、技術名詞）
+- 避免語序混亂、缺主語、缺謂語嘅問題
+
+格式：
+標題：[中文標題]
+總結：[總結內容]`;
+              const orResult = await callOpenRouterFree(prompt, env.OPENROUTER_API_KEY, 500);
+              if (orResult.success) {
+                const text = orResult.text;
                 const titleMatch = text.match(/標題[：:]\s*(.+?)(?:\n|$)/);
-                const summaryMatch = text.match(/總結[：:]\s*([\s\S]+)/);
+                const summaryMatch = text.match(/總結[：:]\\s*([\\s\\S]+)/);
                 const summary = summaryMatch ? summaryMatch[1].trim() : text.trim();
                 let translatedTitle = titleMatch ? titleMatch[1].trim() : '';
                 const badPatterns = [
@@ -2187,11 +2221,11 @@ async function fetchNewsData(env) {
                 ];
                 const hasBadPattern = badPatterns.some(p => p.test(translatedTitle));
                 if (hasBadPattern || translatedTitle.length > 40 || (translatedTitle.length > 0 && translatedTitle.length < 8)) {
-                  console.log(`[NVIDIA] Bad headline detected: "${translatedTitle}", using original`);
+                  console.log(`[OpenRouter] Bad headline detected: "${translatedTitle}", using original`);
                   translatedTitle = '';
                 }
-                result = { translatedTitle, summary, qualityFlag: 'nvidia' };
-                console.log(`[NVIDIA] Summarized: ${translatedTitle || item.title.substring(0, 40)}...`);
+                result = { translatedTitle, summary, qualityFlag: 'openrouter' };
+                console.log(`[OpenRouter] Summarized: ${translatedTitle || item.title.substring(0, 40)}...`);
               }
             }
 
@@ -2204,12 +2238,12 @@ async function fetchNewsData(env) {
 
             if (!result.summary) {
               const fallbackSource = (item.description || item.summary || item.title || '').substring(0, 200);
-              const tRes = await translateWithMyMemory(item.title, "en", "zh-TW");
-              const sRes = await translateWithMyMemory(fallbackSource, "en", "zh-TW");
+              const tRes = await translateWithOpenRouter(item.title, env);
+              const sRes = await translateWithOpenRouter(fallbackSource, env);
               const translatedTitle = tRes.success ? tRes.text : '';
               const summary = sRes.success ? sRes.text : '';
               if (summary && /[\u4e00-\u9fff]/.test(summary)) {
-                result = { translatedTitle, summary, qualityFlag: 'mymemory' };
+                result = { translatedTitle, summary, qualityFlag: 'openrouter_translate' };
               }
             }
             // Ultimate fallback: use raw description extract as summary
@@ -2232,7 +2266,7 @@ async function fetchNewsData(env) {
                   if (zh) translatedTitle = zh;
                 } catch (_e) {}
                 if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
-                  const tRes = await translateWithMyMemory(item.title, "en", "zh-TW");
+                  const tRes = await translateWithOpenRouter(item.title, env);
                   if (tRes.success && tRes.text && /[\u4e00-\u9fff]/.test(tRes.text)) {
                     translatedTitle = tRes.text;
                   }
