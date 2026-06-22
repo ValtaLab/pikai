@@ -2129,17 +2129,17 @@ async function fetchNewsData(env) {
         console.log(`[SumLoop] Processing article ${i+1}/${withImages.length}: "${item.title.substring(0, 60)}", hasDesc: ${!!item.description}`);
         try {
           const cached = await getCachedArticle(item.url, env);
-          if (cached && cached.summary && cached.translatedTitle) {
+          if (cached && (cached.summary || cached.translatedTitle)) {
             const badPatterns = [
               /唔再.*之間/, /之間中/, /就.*[冇无].*再/,
               /[冇无].*再.*之間/, /[是係].*[冇无].*再/,
             ];
-            const titleOk = /[\u4e00-\u9fff]/.test(cached.translatedTitle) &&
+            const titleOk = cached.translatedTitle && /[\u4e00-\u9fff]/.test(cached.translatedTitle) &&
               !badPatterns.some(p => p.test(cached.translatedTitle)) &&
               cached.translatedTitle.length <= 60 &&
               cached.translatedTitle.length >= 8;
-            const summaryOk = /[\u4e00-\u9fff]/.test(cached.summary) && cached.summary.length >= 20;
-            if (titleOk && summaryOk) {
+            const summaryOk = cached.summary && /[\u4e00-\u9fff]/.test(cached.summary) && cached.summary.length >= 10;
+            if (titleOk) {
               console.log(`[Cache] Using cached translation for: ${item.title.substring(0, 40)}...`);
               summarizedNews.push({
                 ...item,
@@ -2214,7 +2214,7 @@ async function fetchNewsData(env) {
               }
             }
 
-            if (result.summary) {
+            if (result.summary || (result.translatedTitle && /[\u4e00-\u9fff]/.test(result.translatedTitle))) {
               let translatedTitle = result.translatedTitle || '';
               if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
                 try {
@@ -2231,7 +2231,7 @@ async function fetchNewsData(env) {
               summarizedNews.push({
                 ...item,
                 translatedTitle: translatedTitle || item.title,
-                summary: result.summary,
+                summary: result.summary || '',
                 summarizedAt: new Date().toISOString()
               });
               await setCachedArticle(item.url, { ...result, translatedTitle }, env);
@@ -2250,9 +2250,24 @@ async function fetchNewsData(env) {
     }
     console.log(`[fetchNewsData] Summarized ${summarizedNews.length}/${toProcess.length} articles (cached hits saved quota)`);
     
-    // Fallback: if no summaries at all, use original deduped news
-    const newsToPick = summarizedNews.length > 0 ? summarizedNews : deduped.slice(0, MAX_ARTICLES);
-    console.log(`[fetchNewsData] Using ${newsToPick.length} articles (fallback: ${summarizedNews.length === 0 ? 'yes' : 'no'})`);
+    // Merge: use summarized articles first, then fill remaining slots from deduped
+    const newsToPick = [...summarizedNews];
+    if (newsToPick.length < MAX_ARTICLES && deduped.length > 0) {
+      const usedUrls = new Set(newsToPick.map(a => a.url));
+      for (const item of deduped) {
+        if (!usedUrls.has(item.url) && newsToPick.length < MAX_ARTICLES) {
+          // Ensure item has at least a Chinese title or original title
+          if (!item.translatedTitle || !/[\u4e00-\u9fff]/.test(item.translatedTitle)) {
+            try {
+              const zh = await translateTitleWithWorkersAI(item.title, env);
+              if (zh) item.translatedTitle = zh;
+            } catch (_e) {}
+          }
+          newsToPick.push(item);
+        }
+      }
+    }
+    console.log(`[fetchNewsData] Using ${newsToPick.length} articles (${summarizedNews.length} summarized + ${newsToPick.length - summarizedNews.length} fallback)`);
     
     // Final pass: translate any remaining English-only headlines
     for (const article of newsToPick) {
