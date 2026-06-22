@@ -2858,10 +2858,30 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += "</div>";
   html += '<div class="content-section section-news active">';
   // Show all news as AI summarized cards
+  // Filter out advertorial/sponsored/promotional content
+  function isAdvertorial(item) {
+    const title = (item.translatedTitle || item.titleZh || item.title || '').toLowerCase();
+    const source = (item.source || '').toLowerCase();
+    // Ad keywords in title
+    const adPatterns = [
+      /會員.*(?:折扣|優惠|半價|免費|贈送)/,
+      /限時.*(?:優惠|折扣|搶購)/,
+      /(?:折扣|優惠|特價|半價).*會員/,
+      /贊助/i,
+      /sponsored/i,
+      /advertorial/i,
+      /promoted/i,
+    ];
+    for (const p of adPatterns) {
+      if (p.test(title)) return true;
+    }
+    return false;
+  }
   if (news && news.length > 0) {
+    const filteredNews = news.filter(item => !isAdvertorial(item));
     html += '<div class="summarized-section">';
     html += '<div class="summarized-grid">';
-    news.forEach(function(item) {
+    filteredNews.forEach(function(item) {
       html += `<div class="summarized-card" onclick="window.open('` + escapeHtml(item.url) + `', '_blank')">`;
       // Image - show OG image, or favicon fallback, or gradient placeholder
       if (item.ogImage) {
