@@ -2877,7 +2877,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".wc-table th:first-child { text-align: left; padding-left: 1rem; }";
   html += ".wc-table td { padding: 0.35rem 0.3rem; text-align: center; border-bottom: 1px solid #f0f0f0; }";
   html += ".wc-table td:first-child { text-align: left; padding-left: 1rem; font-weight: 600; }";
-  html += ".wc-table .team-name { font-weight: 600; color: #0f172a; font-size: 0.8rem; }";
+  html += ".wc-table .team-name { font-weight: 600; color: #0f172a; font-size: 0.8rem; text-align: left; }";
   html += ".wc-table .pos-1 { color: #0066ff; }";
   html += ".wc-table .pts { font-weight: 700; color: #0f172a; font-size: 0.85rem; }";
   html += ".wc-table .gd-pos { color: #22c55e; }";
