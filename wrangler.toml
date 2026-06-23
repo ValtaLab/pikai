@@ -12,7 +12,7 @@ binding = "AI"
 
 # Cron Triggers:
 #  00:00 / 10:00 UTC = 08:00 / 18:00 HKT — news + tools
-#  00:30 UTC = 08:30 HKT — YouTube force-fetch only (split to stay under 50 subreq limit)
+#  YouTube force-fetch handled by Pi cron every 6h hitting /trigger-youtube
 [triggers]
 crons = ["0 0 * * *", "0 10 * * *"]
 

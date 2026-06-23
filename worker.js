@@ -1737,7 +1737,7 @@ async function fetchYouTubeVideos(env, force = false) {
     const batchSize = 5;
     for (let i = 0; i < CHANNELS.length; i += batchSize) {
       const batch = CHANNELS.slice(i, i + batchSize);
-      const batchResults = await Promise.all(batch.map(([id, name]) => searchChannelVideos(id, name, 3)));
+      const batchResults = await Promise.all(batch.map(([id, name]) => searchChannelVideos(id, name, 5)));
       batchResults.forEach(ids => allVideoIds.push(...ids));
     }
 
@@ -2350,23 +2350,16 @@ var worker_default = {
       return;
     }
 
-    // News + Tools cron
+    // News + Tools cron (YouTube handled by Pi cron hitting /trigger-youtube)
     console.log(`[Cron] News+tools run: ${cronExpr}`);
     const newsData = await fetchNewsData(env);
     const toolsData = await fetchToolsData(env);
-    // YouTube: use cache only (no force-fetch) — separate cron handles that
-    let videosData = [];
-    try {
-      videosData = await fetchYouTubeVideos(env);
-    } catch (e) {
-      console.log(`[Cron] YouTube cache fetch failed: ${e.message}`);
-    }
     const data = { ...newsData, tools: toolsData };
     data.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
     const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
     data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
     await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
-    console.log(`Updated: ${data.news.length} news, ${data.tools.length} tools, ${videosData.length} videos`);
+    console.log(`Updated: ${data.news.length} news, ${data.tools.length} tools`);
   },
   async fetch(request, env) {
     try {
