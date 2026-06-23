@@ -2340,7 +2340,7 @@ __name(fetchNewsData, "fetchNewsData");
 var worker_default = {
   async scheduled(controller, env, _ctx) {
     const cronExpr = controller.cron || '';
-    const isYouTubeCron = cronExpr === '30 0 * * *' || cronExpr === '30 10 * * *';
+    const isYouTubeCron = cronExpr === '30 0 * * *';
 
     if (isYouTubeCron) {
       // YouTube-only cron: force-fetch, no news/tools to stay under 50 subreq limit
