@@ -2911,6 +2911,21 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     const groups = wcStandings.groups;
     const groupKeys = Object.keys(groups).sort();
     const wcUpdated = wcStandings.updatedAt ? wcStandings.updatedAt.replace('T', ' ').replace('+08:00', '').substring(0, 16) + ' HKT' : '';
+    // Flag mapping: team name → flag emoji
+    const tFlags = {
+      Mexico:'🇲🇽', 'South Korea':'🇰🇷', 'Czech Republic':'🇨🇿', 'South Africa':'🇿🇦',
+      Canada:'🇨🇦', Switzerland:'🇨🇭', 'Bosnia and Herzegovina':'🇧🇦', Qatar:'🇶🇦',
+      Brazil:'🇧🇷', Morocco:'🇲🇦', Scotland:'🏴󠁧󠁢󠁳󠁣󠁴󠁿', Haiti:'🇭🇹',
+      'United States':'🇺🇸', Australia:'🇦🇺', Paraguay:'🇵🇾', Turkey:'🇹🇷',
+      Germany:'🇩🇪', 'Ivory Coast':'🇨🇮', Ecuador:'🇪🇨', Curaçao:'🇨🇼',
+      Netherlands:'🇳🇱', Japan:'🇯🇵', Sweden:'🇸🇪', Tunisia:'🇹🇳',
+      Egypt:'🇪🇬', Iran:'🇮🇷', Belgium:'🇧🇪', 'New Zealand':'🇳🇿',
+      Spain:'🇪🇸', Uruguay:'🇺🇾', 'Cape Verde':'🇨🇻', 'Saudi Arabia':'🇸🇦',
+      France:'🇫🇷', Norway:'🇳🇴', Senegal:'🇸🇳', Iraq:'🇮🇶',
+      Argentina:'🇦🇷', Austria:'🇦🇹', Algeria:'🇩🇿', Jordan:'🇯🇴',
+      Colombia:'🇨🇴', 'DR Congo':'🇨🇩', Portugal:'🇵🇹', Uzbekistan:'🇺🇿',
+      England:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', Ghana:'🇬🇭', Panama:'🇵🇦', Croatia:'🇭🇷',
+    };
     html += '<div class="wc-section">';
     html += '<div class="wc-header">🌍 2026 世界盃積分榜<span class="wc-updated">' + wcUpdated + '</span></div>';
     html += '<div class="wc-groups" id="wcTabs">';
@@ -2928,7 +2943,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
         const isFirst = ti === 0;
         html += '<tr>';
         html += '<td class="' + (isFirst ? 'pos-1' : '') + '">' + (ti + 1) + '</td>';
-        html += '<td class="team-name">' + t.team + '</td>';
+        html += '<td class="team-name">' + (tFlags[t.team] || '') + ' ' + t.team + '</td>';
         html += '<td>' + t.pld + '</td>';
         html += '<td>' + t.w + '</td>';
         html += '<td>' + t.d + '</td>';
