@@ -14,7 +14,7 @@ binding = "AI"
 #  00:00 / 10:00 UTC = 08:00 / 18:00 HKT — news + tools
 #  00:30 UTC = 08:30 HKT — YouTube force-fetch only (split to stay under 50 subreq limit)
 [triggers]
-crons = ["0 0 * * *", "0 10 * * *", "30 0 * * *"]
+crons = ["0 0 * * *", "0 10 * * *"]
 
 # KV Namespace for caching news data
 [[kv_namespaces]]
