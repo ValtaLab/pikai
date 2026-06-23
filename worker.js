@@ -2915,7 +2915,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     html += '<div class="wc-header">🌍 2026 世界盃積分榜<span class="wc-updated">' + wcUpdated + '</span></div>';
     html += '<div class="wc-groups" id="wcTabs">';
     groupKeys.forEach(function(g, idx) {
-      html += '<button class="wc-group-tab' + (idx === 0 ? ' active' : '') + '" data-group="' + g + '" onclick="switchWcGroup(\'' + g + '\')">' + g + '</button>';
+      html += '<button class="wc-group-tab' + (idx === 0 ? ' active' : '') + '" data-group="' + g + '" onclick="switchWcGroup(this)">' + g + '</button>';
     });
     html += '</div>';
     groupKeys.forEach(function(g, idx) {
@@ -2941,7 +2941,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     });
     html += '</div>';
     // WC group switcher JS
-    html += '<script>function switchWcGroup(g){document.querySelectorAll(".wc-table-wrap").forEach(function(e){e.classList.remove("open")});var t=document.getElementById("wcGroup-"+g);if(t)t.classList.add("open");document.querySelectorAll(".wc-group-tab").forEach(function(b){b.classList.remove("active")});var a=document.querySelector("[data-group=\\"'+g+'\\"]");if(a)a.classList.add("active")}</script>';
+    html += '<script>function switchWcGroup(el){var g=el.getAttribute("data-group");document.querySelectorAll(".wc-table-wrap").forEach(function(e){e.classList.remove("open")});var t=document.getElementById("wcGroup-"+g);if(t)t.classList.add("open");document.querySelectorAll(".wc-group-tab").forEach(function(b){b.classList.remove("active")});el.classList.add("active")}</script>';
   }
   // Show all news as AI summarized cards
   // Filter out advertorial/sponsored/promotional content
