@@ -2512,6 +2512,25 @@ var worker_default = {
           return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
         }
       }
+      if (url.pathname === "/trigger-news") {
+        try {
+          const newsData = await fetchNewsData(env);
+          const toolsData = await fetchToolsData(env);
+          const data = { ...newsData, tools: toolsData };
+          data.updatedAt = new Date().toISOString();
+          const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
+          data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
+          await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+          return new Response(JSON.stringify({
+            success: true,
+            newsCount: data.news.length,
+            toolsCount: data.tools.length,
+            updatedAt: data.updatedAt
+          }, null, 2), { headers: { "Content-Type": "application/json" } });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
+        }
+      }
       if (url.pathname === "/debug-news") {
         try {
           const newsData = await fetchNewsData(env);
