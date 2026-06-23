@@ -2910,7 +2910,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   if (wcStandings && wcStandings.groups) {
     const groups = wcStandings.groups;
     const groupKeys = Object.keys(groups).sort();
-    const wcUpdated = wcStandings.updatedAt ? wcStandings.updatedAt.replace('T', ' ').substring(0, 16) + ' UTC' : '';
+    const wcUpdated = wcStandings.updatedAt ? wcStandings.updatedAt.replace('T', ' ').replace('+08:00', '').substring(0, 16) + ' HKT' : '';
     html += '<div class="wc-section">';
     html += '<div class="wc-header">🌍 2026 世界盃積分榜<span class="wc-updated">' + wcUpdated + '</span></div>';
     html += '<div class="wc-groups" id="wcTabs">';
