@@ -2640,6 +2640,8 @@ async function submitPost() {
       const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
       data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
       await env.AI_NEWS_KV.put("news-data", JSON.stringify(data2));
+      const wcRaw = await env.AI_NEWS_KV.get("worldcup-standings");
+      data2.wcStandings = wcRaw ? JSON.parse(wcRaw) : null;
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
@@ -2661,6 +2663,11 @@ async function submitPost() {
       }
       const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
       data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
+      // World Cup standings
+      try {
+        const wcRaw = await env.AI_NEWS_KV.get("worldcup-standings");
+        data2.wcStandings = wcRaw ? JSON.parse(wcRaw) : null;
+      } catch (_e) { data2.wcStandings = null; }
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
@@ -2670,6 +2677,8 @@ async function submitPost() {
       const data = { ...newsData, tools: toolsData, videos: videosData };
       const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
       data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
+      const wcRaw2 = await env.AI_NEWS_KV.get("worldcup-standings");
+      data.wcStandings = wcRaw2 ? JSON.parse(wcRaw2) : null;
       const html = generatePage(data);
       return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
     } catch (err) {
@@ -2689,7 +2698,7 @@ function formatStars(stars) {
   return stars.toString();
 }
 __name(formatStars, "formatStars");
-function generatePage({ news = [], tools = [], videos = [], blogPosts = [], updatedAt, summarizedNews = [], summarizedAt = null }) {
+function generatePage({ news = [], tools = [], videos = [], blogPosts = [], updatedAt, summarizedNews = [], summarizedAt = null, wcStandings = null }) {
   console.log('generatePage called with:', typeof news, typeof tools);
   console.log('  news:', Array.isArray(news) ? `Array(${news.length})` : typeof news);
   console.log('  tools:', Array.isArray(tools) ? `Array(${tools.length})` : typeof tools);
@@ -2853,6 +2862,27 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".tool-links-list { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.6rem; }";
   html += ".tool-link { display: inline-block; background: linear-gradient(135deg, #f0f4ff, #e8e8f0); color: #0066ff; padding: 0.4rem 0.9rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; text-decoration: none; border: 1px solid rgba(0,102,255,0.15); transition: all 0.2s; }";
   html += ".tool-link:hover { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; text-decoration: none; border-color: transparent; transform: translateY(-1px); }";
+  /* World Cup 2026 Standings */
+  html += ".wc-section { background: #fff; border-radius: 16px; margin-bottom: 1.2rem; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e8e8f0; }";
+  html += ".wc-header { padding: 0.8rem 1rem 0.5rem; font-size: 1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; }";
+  html += ".wc-header .wc-updated { font-size: 0.7rem; color: #999; font-weight: 400; margin-left: auto; }";
+  html += ".wc-groups { display: flex; gap: 0.25rem; padding: 0 1rem 0.5rem; overflow-x: auto; flex-wrap: wrap; }";
+  html += ".wc-group-tab { padding: 0.25rem 0.6rem; font-size: 0.75rem; font-weight: 600; border-radius: 6px; cursor: pointer; color: #666; background: #f0f2f5; transition: all 0.2s; border: none; }";
+  html += ".wc-group-tab:hover { background: #e0e3e8; }";
+  html += ".wc-group-tab.active { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; }";
+  html += ".wc-table-wrap { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }";
+  html += ".wc-table-wrap.open { max-height: 400px; }";
+  html += ".wc-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }";
+  html += ".wc-table th { background: #f8f9fc; color: #666; font-weight: 600; padding: 0.4rem 0.3rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e8e8f0; }";
+  html += ".wc-table th:first-child { text-align: left; padding-left: 1rem; }";
+  html += ".wc-table td { padding: 0.35rem 0.3rem; text-align: center; border-bottom: 1px solid #f0f0f0; }";
+  html += ".wc-table td:first-child { text-align: left; padding-left: 1rem; font-weight: 600; }";
+  html += ".wc-table .team-name { font-weight: 600; color: #0f172a; font-size: 0.8rem; }";
+  html += ".wc-table .pos-1 { color: #0066ff; }";
+  html += ".wc-table .pts { font-weight: 700; color: #0f172a; font-size: 0.85rem; }";
+  html += ".wc-table .gd-pos { color: #22c55e; }";
+  html += ".wc-table .gd-neg { color: #ef4444; }";
+  html += ".wc-table tr:last-child td { border-bottom: none; }";
   html += "</style>";
   html += "</head>";
   html += '<body>';
@@ -2876,6 +2906,43 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += `<div class="tab tab-blog" data-tab-index="4" onclick="switchTab('blog')"><span>應用實例</span></div>`;
   html += "</div>";
   html += '<div class="content-section section-news active">';
+  // World Cup 2026 Standings
+  if (wcStandings && wcStandings.groups) {
+    const groups = wcStandings.groups;
+    const groupKeys = Object.keys(groups).sort();
+    const wcUpdated = wcStandings.updatedAt ? wcStandings.updatedAt.replace('T', ' ').substring(0, 16) + ' UTC' : '';
+    html += '<div class="wc-section">';
+    html += '<div class="wc-header">🌍 2026 世界盃積分榜<span class="wc-updated">' + wcUpdated + '</span></div>';
+    html += '<div class="wc-groups" id="wcTabs">';
+    groupKeys.forEach(function(g, idx) {
+      html += '<button class="wc-group-tab' + (idx === 0 ? ' active' : '') + '" data-group="' + g + '" onclick="switchWcGroup(\'' + g + '\')">' + g + '</button>';
+    });
+    html += '</div>';
+    groupKeys.forEach(function(g, idx) {
+      html += '<div class="wc-table-wrap' + (idx === 0 ? ' open' : '') + '" id="wcGroup-' + g + '">';
+      html += '<table class="wc-table"><tr><th>#</th><th>球隊</th><th>賽</th><th>勝</th><th>和</th><th>負</th><th>GD</th><th>積分</th></tr>';
+      const teams = groups[g] || [];
+      teams.forEach(function(t, ti) {
+        const gdVal = t.gd || '0';
+        const gdClass = gdVal.startsWith('+') ? 'gd-pos' : gdVal.startsWith('-') ? 'gd-neg' : '';
+        const isFirst = ti === 0;
+        html += '<tr>';
+        html += '<td class="' + (isFirst ? 'pos-1' : '') + '">' + (ti + 1) + '</td>';
+        html += '<td class="team-name">' + t.team + '</td>';
+        html += '<td>' + t.pld + '</td>';
+        html += '<td>' + t.w + '</td>';
+        html += '<td>' + t.d + '</td>';
+        html += '<td>' + t.l + '</td>';
+        html += '<td class="' + gdClass + '">' + gdVal + '</td>';
+        html += '<td class="pts">' + t.pts + '</td>';
+        html += '</tr>';
+      });
+      html += '</table></div>';
+    });
+    html += '</div>';
+    // WC group switcher JS
+    html += '<script>function switchWcGroup(g){document.querySelectorAll(".wc-table-wrap").forEach(function(e){e.classList.remove("open")});var t=document.getElementById("wcGroup-"+g);if(t)t.classList.add("open");document.querySelectorAll(".wc-group-tab").forEach(function(b){b.classList.remove("active")});var a=document.querySelector("[data-group=\\"'+g+'\\"]");if(a)a.classList.add("active")}</script>';
+  }
   // Show all news as AI summarized cards
   // Filter out advertorial/sponsored/promotional content
   function isAdvertorial(item) {
