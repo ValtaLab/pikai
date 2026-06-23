@@ -2339,9 +2339,28 @@ async function fetchNewsData(env) {
 __name(fetchNewsData, "fetchNewsData");
 var worker_default = {
   async scheduled(controller, env, _ctx) {
+    const cronExpr = controller.cron || '';
+    const isYouTubeCron = cronExpr === '30 0 * * *' || cronExpr === '30 10 * * *';
+
+    if (isYouTubeCron) {
+      // YouTube-only cron: force-fetch, no news/tools to stay under 50 subreq limit
+      console.log(`[Cron] YouTube-only run: ${cronExpr}`);
+      const videosData = await fetchYouTubeVideos(env, true);
+      console.log(`[Cron] YouTube update complete: ${videosData.length} videos`);
+      return;
+    }
+
+    // News + Tools cron
+    console.log(`[Cron] News+tools run: ${cronExpr}`);
     const newsData = await fetchNewsData(env);
     const toolsData = await fetchToolsData(env);
-    const videosData = await fetchYouTubeVideos(env, true);
+    // YouTube: use cache only (no force-fetch) — separate cron handles that
+    let videosData = [];
+    try {
+      videosData = await fetchYouTubeVideos(env);
+    } catch (e) {
+      console.log(`[Cron] YouTube cache fetch failed: ${e.message}`);
+    }
     const data = { ...newsData, tools: toolsData };
     data.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
     const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");

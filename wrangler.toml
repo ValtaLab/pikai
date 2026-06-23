@@ -10,9 +10,11 @@ CF_ACCOUNT_ID = "77002f1945c94a1c33a11717015c378b"
 [ai]
 binding = "AI"
 
-# Cron Trigger: 每日 2 次 — 08:00 / 18:00 HKT = 00:00 / 10:00 UTC
+# Cron Triggers:
+#  00:00 / 10:00 UTC = 08:00 / 18:00 HKT — news + tools
+#  00:30 / 10:30 UTC = 08:30 / 18:30 HKT — YouTube force-fetch only (separate to avoid 50 subreq limit)
 [triggers]
-crons = ["0 0 * * *", "0 10 * * *"]
+crons = ["0 0 * * *", "0 10 * * *", "30 0 * * *", "30 10 * * *"]
 
 # KV Namespace for caching news data
 [[kv_namespaces]]
