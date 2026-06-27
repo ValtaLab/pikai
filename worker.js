@@ -2651,7 +2651,14 @@ async function submitPost() {
       data2.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
       const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
       data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-      await env.AI_NEWS_KV.put("news-data", JSON.stringify(data2));
+      // Minimum article threshold: don't overwrite KV with incomplete data
+      // Prevents transient RSS failures from destroying good KV cache
+      if (newsData.news && newsData.news.length >= 15) {
+        await env.AI_NEWS_KV.put("news-data", JSON.stringify(data2));
+        console.log(`[?refresh=1] KV updated: ${newsData.news.length} news, ${toolsData?.length || 0} tools`);
+      } else {
+        console.log(`[?refresh=1] SKIPPED KV write: only ${newsData.news?.length || 0} articles (min 15 required)`);
+      }
       const wcRaw = await env.AI_NEWS_KV.get("worldcup-standings");
       data2.wcStandings = wcRaw ? JSON.parse(wcRaw) : null;
       const html2 = generatePage(data2);

@@ -532,3 +532,28 @@ tunnel URL changed, auto-deployed by monitor
 - **Details**:
 將 JS fetchVideoSummary() 內 3 處 btn.textContent 由「🧠 摘要」改為「🧠 AI Digest」
 - **Version**: 1c58d45
+
+## 2026-06-23 18:56
+- **Type**: 優化
+- **Summary**: 新增 `/trigger-news` endpoint + Pi cron 自動化新聞更新
+- **Details**:
+  - 新增 `/trigger-news` endpoint：call fetchNewsData + fetchToolsData → 寫入 KV `news-data`
+  - Pi cron `15 */6 * * *` curl /trigger-news（每 6h :15 自動更新，同 YouTube 分開時段）
+  - YouTube Pi cron `30 */6` 位置不變
+  - 解決 cron 偶爾只出 10 篇新聞嘅問題（Pi residential IP 更可靠）
+- **Cron 架構重整**：
+  - 📰 新聞：Pi `15 */6` → `/trigger-news`（主力）
+  - 🎬 YouTube：Pi `30 */6` → `/trigger-youtube`（主力）
+  - 🏆 積分榜：Pi `0 7` → `wc-standings.py`（每日）
+  - 🔁 CF cron `0 0` → news+tools（每日 fallback）
+- **Full data flow**:
+  ```
+  Pi (cron) ──curl──→ Worker endpoint ──fetch──→ RSS/API
+                          │
+                          ▼ 寫入 KV
+                     news-data / youtube:videos:v25 / worldcup-standings
+                          │
+                          ▼ 正常 page load
+                     KV.get → generatePage() → HTML
+  ```
+- **Version**: 44c9341
