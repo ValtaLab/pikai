@@ -1230,7 +1230,7 @@ async function fetchAINews() {
   ]);
   
   // Parallel fetch all sources - limit 10 per source for diversity
-  const MAX_PER_SOURCE = 3;
+  const MAX_PER_SOURCE = 5;
   const results = await Promise.all(
     NEWS_SOURCES.map(async (source) => {
       try {
@@ -1512,7 +1512,7 @@ async function pickTopNews(newsItems, env) {
       const overlap = getKeywordOverlap(keywords, seenKw);
       const minLength = Math.min(keywords.split('+').length, seenKw.split('+').length);
       // If 2+ keywords overlap and overlap is >= 50% of shorter set, it's duplicate
-      if (overlap >= 2 && overlap >= minLength * 0.5) {
+      if (overlap >= 3 && overlap >= minLength * 0.7) {
         console.log(`[pickTopNews] Deduplicate by keywords (${overlap} overlap): ${title.substring(0, 50)}...`);
         isDuplicate = true;
         break;
