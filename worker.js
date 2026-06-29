@@ -2900,8 +2900,10 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".wc-group-tab.active { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; }";
   html += ".wc-table-wrap { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }";
   html += ".wc-table-wrap.open { max-height: 400px; }";
-  html += ".ko-table-wrap { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }";
-  html += ".ko-table-wrap.open { max-height: none; overflow: visible; }";
+  html += ".ko-bracket { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 0.5rem 0.5rem; gap: 0.3rem; }";
+  html += ".ko-round-col { flex: 0 0 auto; min-width: 175px; display: flex; flex-direction: column; }";
+  html += ".ko-round-label { font-size: 0.7rem; font-weight: 700; color: #0066ff; text-align: center; padding: 0.3rem 0; position: sticky; top: 0; background: #fff; z-index: 2; text-transform: uppercase; letter-spacing: 0.05em; }";
+  html += ".ko-round-matches { display: flex; flex-direction: column; justify-content: space-around; flex: 1; gap: 0.3rem; padding-top: 0.2rem; }";
   html += ".wc-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }";
   html += ".wc-table th { background: #f8f9fc; color: #666; font-weight: 600; padding: 0.4rem 0.3rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e8e8f0; }";
   html += ".wc-table th:first-child { text-align: left; padding-left: 1rem; }";
@@ -2914,13 +2916,13 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".wc-table .gd-neg { color: #ef4444; }";
   html += ".wc-table tr:last-child td { border-bottom: none; }";
   /* Knockout match cards */
-  html += ".ko-match { background: #f8f9fc; border-radius: 10px; padding: 0.5rem 0.8rem; margin-bottom: 0.5rem; border: 1px solid #eee; }";
-  html += ".ko-meta { font-size: 0.7rem; color: #999; margin-bottom: 0.3rem; }";
-  html += ".ko-line { display: flex; justify-content: space-between; align-items: center; padding: 0.15rem 0; font-size: 0.85rem; }";
+  html += ".ko-match { background: #f8f9fc; border-radius: 8px; padding: 0.35rem 0.6rem; border: 1px solid #eee; }";
+  html += ".ko-meta { font-size: 0.62rem; color: #aaa; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }";
+  html += ".ko-line { display: flex; justify-content: space-between; align-items: center; padding: 0.1rem 0; font-size: 0.78rem; }";
   html += ".ko-line.ko-winner { font-weight: 700; color: #0f172a; }";
-  html += ".ko-team { flex: 1; text-align: left; }";
-  html += ".ko-score { width: 2rem; text-align: center; font-weight: 600; color: #666; }";
-  html += ".ko-score.ko-scored { font-size: 1rem; color: #0f172a; }";
+  html += ".ko-team { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }";
+  html += ".ko-score { width: 1.5rem; text-align: center; font-weight: 600; color: #999; flex-shrink: 0; }";
+  html += ".ko-score.ko-scored { font-size: 0.9rem; color: #0f172a; }";
   html += ".ko-winner .ko-score { color: #0066ff; }";
   html += "</style>";
   html += "</head>";
@@ -2967,20 +2969,13 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     const rndLabels = {'round_of_32':'R32','round_of_16':'R16','quarter_finals':'QF','semi_finals':'SF','third_place':'3rd','final':'Final'};
     html += '<div class="wc-section">';
     html += '<div class="wc-header">🏆 淘汰賽<span class="wc-updated">' + koUpdated + '</span></div>';
-    html += '<div class="wc-groups" id="koTabs">';
-    rndOrder.forEach(function(rnd, idx) {
-      var matches = ko[rnd] || [];
-      if (matches.length > 0) {
-        html += '<button class="wc-group-tab' + (idx === 0 ? ' active' : '') + '" data-ko-round="' + rnd + '" onclick="switchKoRound(this)">' + rndLabels[rnd] + '</button>';
-      }
-    });
-    html += '</div>';
-    // Round content
-    rndOrder.forEach(function(rnd, rndIdx) {
+    html += '<div class="ko-bracket">';
+    rndOrder.forEach(function(rnd) {
       var matches = ko[rnd] || [];
       if (matches.length === 0) return;
-      html += '<div class="ko-table-wrap' + (rndIdx === 0 ? ' open' : '') + '" id="koRound-' + rnd + '">';
-      html += '<div style="padding:0.5rem 1rem;">';
+      html += '<div class="ko-round-col">';
+      html += '<div class="ko-round-label">' + rndLabels[rnd] + '</div>';
+      html += '<div class="ko-round-matches">';
       matches.forEach(function(m) {
         var isPlayed = (m.score1 !== null && m.score2 !== null);
         var t1Flag = tFlags[m.team1] || '';
@@ -2989,7 +2984,6 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
         var t2Label = m.team2.startsWith('Winner') || m.team2.startsWith('Loser') ? 'TBD' : m.team2;
         var s1 = m.score1 !== null ? m.score1 : '';
         var s2 = m.score2 !== null ? m.score2 : '';
-        // Find winner
         var winner = null;
         if (isPlayed) {
           if (m.score1 > m.score2) winner = 't1';
@@ -3004,8 +2998,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       html += '</div></div>';
     });
     html += '</div>';
-    // KO round switcher JS
-    html += '<script>function switchKoRound(el){var r=el.getAttribute("data-ko-round");el.closest(".wc-section").querySelectorAll(".ko-table-wrap").forEach(function(e){e.classList.remove("open")});var t=document.getElementById("koRound-"+r);if(t)t.classList.add("open");el.closest(".wc-section").querySelectorAll("[data-ko-round]").forEach(function(b){b.classList.remove("active")});el.classList.add("active")}</script>';
+    html += '</div>';
   }
   // Show all news as AI summarized cards
   // Filter out advertorial/sponsored/promotional content
