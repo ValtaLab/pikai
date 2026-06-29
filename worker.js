@@ -2900,6 +2900,8 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".wc-group-tab.active { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; }";
   html += ".wc-table-wrap { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }";
   html += ".wc-table-wrap.open { max-height: 400px; }";
+  html += ".ko-table-wrap { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }";
+  html += ".ko-table-wrap.open { max-height: none; overflow: visible; }";
   html += ".wc-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }";
   html += ".wc-table th { background: #f8f9fc; color: #666; font-weight: 600; padding: 0.4rem 0.3rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e8e8f0; }";
   html += ".wc-table th:first-child { text-align: left; padding-left: 1rem; }";
@@ -2943,58 +2945,6 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += `<div class="tab tab-blog" data-tab-index="4" onclick="switchTab('blog')"><span>應用實例</span></div>`;
   html += "</div>";
   html += '<div class="content-section section-news active">';
-  // World Cup 2026 Standings
-  if (wcStandings && wcStandings.groups) {
-    const groups = wcStandings.groups;
-    const groupKeys = Object.keys(groups).sort();
-    const wcUpdated = wcStandings.updatedAt ? wcStandings.updatedAt.replace('T', ' ').replace('+08:00', '').substring(0, 16) + ' HKT' : '';
-    // Flag mapping: team name → flag emoji
-    const tFlags = {
-      Mexico:'🇲🇽', 'South Korea':'🇰🇷', 'Czech Republic':'🇨🇿', 'South Africa':'🇿🇦',
-      Canada:'🇨🇦', Switzerland:'🇨🇭', 'Bosnia and Herzegovina':'🇧🇦', Qatar:'🇶🇦',
-      Brazil:'🇧🇷', Morocco:'🇲🇦', Scotland:'🏴󠁧󠁢󠁳󠁣󠁴󠁿', Haiti:'🇭🇹',
-      'United States':'🇺🇸', Australia:'🇦🇺', Paraguay:'🇵🇾', Turkey:'🇹🇷',
-      Germany:'🇩🇪', 'Ivory Coast':'🇨🇮', Ecuador:'🇪🇨', Curaçao:'🇨🇼',
-      Netherlands:'🇳🇱', Japan:'🇯🇵', Sweden:'🇸🇪', Tunisia:'🇹🇳',
-      Egypt:'🇪🇬', Iran:'🇮🇷', Belgium:'🇧🇪', 'New Zealand':'🇳🇿',
-      Spain:'🇪🇸', Uruguay:'🇺🇾', 'Cape Verde':'🇨🇻', 'Saudi Arabia':'🇸🇦',
-      France:'🇫🇷', Norway:'🇳🇴', Senegal:'🇸🇳', Iraq:'🇮🇶',
-      Argentina:'🇦🇷', Austria:'🇦🇹', Algeria:'🇩🇿', Jordan:'🇯🇴',
-      Colombia:'🇨🇴', 'DR Congo':'🇨🇩', Portugal:'🇵🇹', Uzbekistan:'🇺🇿',
-      England:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', Ghana:'🇬🇭', Panama:'🇵🇦', Croatia:'🇭🇷',
-    };
-    html += '<div class="wc-section">';
-    html += '<div class="wc-header">🌍 2026 世界盃積分榜<span class="wc-updated">' + wcUpdated + '</span></div>';
-    html += '<div class="wc-groups" id="wcTabs">';
-    groupKeys.forEach(function(g, idx) {
-      html += '<button class="wc-group-tab' + (idx === 0 ? ' active' : '') + '" data-group="' + g + '" onclick="switchWcGroup(this)">' + g + '</button>';
-    });
-    html += '</div>';
-    groupKeys.forEach(function(g, idx) {
-      html += '<div class="wc-table-wrap' + (idx === 0 ? ' open' : '') + '" id="wcGroup-' + g + '">';
-      html += '<table class="wc-table"><tr><th>#</th><th>球隊</th><th>賽</th><th>勝</th><th>和</th><th>負</th><th>GD</th><th>積分</th></tr>';
-      const teams = groups[g] || [];
-      teams.forEach(function(t, ti) {
-        const gdVal = t.gd || '0';
-        const gdClass = gdVal.startsWith('+') ? 'gd-pos' : gdVal.startsWith('-') ? 'gd-neg' : '';
-        const isFirst = ti === 0;
-        html += '<tr>';
-        html += '<td class="' + (isFirst ? 'pos-1' : '') + '">' + (ti + 1) + '</td>';
-        html += '<td class="team-name">' + (tFlags[t.team] || '') + ' ' + t.team + '</td>';
-        html += '<td>' + t.pld + '</td>';
-        html += '<td>' + t.w + '</td>';
-        html += '<td>' + t.d + '</td>';
-        html += '<td>' + t.l + '</td>';
-        html += '<td class="' + gdClass + '">' + gdVal + '</td>';
-        html += '<td class="pts">' + t.pts + '</td>';
-        html += '</tr>';
-      });
-      html += '</table></div>';
-    });
-    html += '</div>';
-    // WC group switcher JS
-    html += '<script>function switchWcGroup(el){var g=el.getAttribute("data-group");el.closest(".wc-section").querySelectorAll(".wc-table-wrap").forEach(function(e){e.classList.remove("open")});var t=document.getElementById("wcGroup-"+g);if(t)t.classList.add("open");el.closest(".wc-section").querySelectorAll(".wc-group-tab").forEach(function(b){b.classList.remove("active")});el.classList.add("active")}</script>';
-  }
   // World Cup 2026 Knockout Stage
   if (wcKnockout && wcKnockout.rounds) {
     const ko = wcKnockout.rounds;
@@ -3029,7 +2979,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     rndOrder.forEach(function(rnd, rndIdx) {
       var matches = ko[rnd] || [];
       if (matches.length === 0) return;
-      html += '<div class="wc-table-wrap' + (rndIdx === 0 ? ' open' : '') + '" id="koRound-' + rnd + '">';
+      html += '<div class="ko-table-wrap' + (rndIdx === 0 ? ' open' : '') + '" id="koRound-' + rnd + '">';
       html += '<div style="padding:0.5rem 1rem;">';
       matches.forEach(function(m) {
         var isPlayed = (m.score1 !== null && m.score2 !== null);
@@ -3055,7 +3005,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     });
     html += '</div>';
     // KO round switcher JS
-    html += '<script>function switchKoRound(el){var r=el.getAttribute("data-ko-round");el.closest(".wc-section").querySelectorAll(".wc-table-wrap").forEach(function(e){e.classList.remove("open")});var t=document.getElementById("koRound-"+r);if(t)t.classList.add("open");el.closest(".wc-section").querySelectorAll("[data-ko-round]").forEach(function(b){b.classList.remove("active")});el.classList.add("active")}</script>';
+    html += '<script>function switchKoRound(el){var r=el.getAttribute("data-ko-round");el.closest(".wc-section").querySelectorAll(".ko-table-wrap").forEach(function(e){e.classList.remove("open")});var t=document.getElementById("koRound-"+r);if(t)t.classList.add("open");el.closest(".wc-section").querySelectorAll("[data-ko-round]").forEach(function(b){b.classList.remove("active")});el.classList.add("active")}</script>';
   }
   // Show all news as AI summarized cards
   // Filter out advertorial/sponsored/promotional content
