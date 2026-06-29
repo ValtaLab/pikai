@@ -2661,6 +2661,8 @@ async function submitPost() {
       }
       const wcRaw = await env.AI_NEWS_KV.get("worldcup-standings");
       data2.wcStandings = wcRaw ? JSON.parse(wcRaw) : null;
+      const koRaw = await env.AI_NEWS_KV.get("worldcup-knockout");
+      data2.wcKnockout = koRaw ? JSON.parse(koRaw) : null;
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
@@ -2687,6 +2689,11 @@ async function submitPost() {
         const wcRaw = await env.AI_NEWS_KV.get("worldcup-standings");
         data2.wcStandings = wcRaw ? JSON.parse(wcRaw) : null;
       } catch (_e) { data2.wcStandings = null; }
+      // World Cup knockout
+      try {
+        const koRaw2 = await env.AI_NEWS_KV.get("worldcup-knockout");
+        data2.wcKnockout = koRaw2 ? JSON.parse(koRaw2) : null;
+      } catch (_e) { data2.wcKnockout = null; }
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
@@ -2698,6 +2705,8 @@ async function submitPost() {
       data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
       const wcRaw2 = await env.AI_NEWS_KV.get("worldcup-standings");
       data.wcStandings = wcRaw2 ? JSON.parse(wcRaw2) : null;
+      const koRaw3 = await env.AI_NEWS_KV.get("worldcup-knockout");
+      data.wcKnockout = koRaw3 ? JSON.parse(koRaw3) : null;
       const html = generatePage(data);
       return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
     } catch (err) {
@@ -2717,7 +2726,7 @@ function formatStars(stars) {
   return stars.toString();
 }
 __name(formatStars, "formatStars");
-function generatePage({ news = [], tools = [], videos = [], blogPosts = [], updatedAt, summarizedNews = [], summarizedAt = null, wcStandings = null }) {
+function generatePage({ news = [], tools = [], videos = [], blogPosts = [], updatedAt, summarizedNews = [], summarizedAt = null, wcStandings = null, wcKnockout = null }) {
   console.log('generatePage called with:', typeof news, typeof tools);
   console.log('  news:', Array.isArray(news) ? `Array(${news.length})` : typeof news);
   console.log('  tools:', Array.isArray(tools) ? `Array(${tools.length})` : typeof tools);
@@ -2902,6 +2911,15 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".wc-table .gd-pos { color: #22c55e; }";
   html += ".wc-table .gd-neg { color: #ef4444; }";
   html += ".wc-table tr:last-child td { border-bottom: none; }";
+  /* Knockout match cards */
+  html += ".ko-match { background: #f8f9fc; border-radius: 10px; padding: 0.5rem 0.8rem; margin-bottom: 0.5rem; border: 1px solid #eee; }";
+  html += ".ko-meta { font-size: 0.7rem; color: #999; margin-bottom: 0.3rem; }";
+  html += ".ko-line { display: flex; justify-content: space-between; align-items: center; padding: 0.15rem 0; font-size: 0.85rem; }";
+  html += ".ko-line.ko-winner { font-weight: 700; color: #0f172a; }";
+  html += ".ko-team { flex: 1; text-align: left; }";
+  html += ".ko-score { width: 2rem; text-align: center; font-weight: 600; color: #666; }";
+  html += ".ko-score.ko-scored { font-size: 1rem; color: #0f172a; }";
+  html += ".ko-winner .ko-score { color: #0066ff; }";
   html += "</style>";
   html += "</head>";
   html += '<body>';
@@ -2975,7 +2993,69 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     });
     html += '</div>';
     // WC group switcher JS
-    html += '<script>function switchWcGroup(el){var g=el.getAttribute("data-group");document.querySelectorAll(".wc-table-wrap").forEach(function(e){e.classList.remove("open")});var t=document.getElementById("wcGroup-"+g);if(t)t.classList.add("open");document.querySelectorAll(".wc-group-tab").forEach(function(b){b.classList.remove("active")});el.classList.add("active")}</script>';
+    html += '<script>function switchWcGroup(el){var g=el.getAttribute("data-group");el.closest(".wc-section").querySelectorAll(".wc-table-wrap").forEach(function(e){e.classList.remove("open")});var t=document.getElementById("wcGroup-"+g);if(t)t.classList.add("open");el.closest(".wc-section").querySelectorAll(".wc-group-tab").forEach(function(b){b.classList.remove("active")});el.classList.add("active")}</script>';
+  }
+  // World Cup 2026 Knockout Stage
+  if (wcKnockout && wcKnockout.rounds) {
+    const ko = wcKnockout.rounds;
+    const koUpdated = wcKnockout.updatedAt ? wcKnockout.updatedAt.replace('T', ' ').replace('+08:00', '').substring(0, 16) + ' HKT' : '';
+    const tFlags = {
+      Mexico:'🇲🇽', 'South Korea':'🇰🇷', 'Czech Republic':'🇨🇿', 'South Africa':'🇿🇦',
+      Canada:'🇨🇦', Switzerland:'🇨🇭', 'Bosnia and Herzegovina':'🇧🇦', Qatar:'🇶🇦',
+      Brazil:'🇧🇷', Morocco:'🇲🇦', Scotland:'🏴󠁧󠁢󠁳󠁣󠁴󠁿', Haiti:'🇭🇹',
+      'United States':'🇺🇸', Australia:'🇦🇺', Paraguay:'🇵🇾', Turkey:'🇹🇷',
+      Germany:'🇩🇪', 'Ivory Coast':'🇨🇮', Ecuador:'🇪🇨', Curaçao:'🇨🇼',
+      Netherlands:'🇳🇱', Japan:'🇯🇵', Sweden:'🇸🇪', Tunisia:'🇹🇳',
+      Egypt:'🇪🇬', Iran:'🇮🇷', Belgium:'🇧🇪', 'New Zealand':'🇳🇿',
+      Spain:'🇪🇸', Uruguay:'🇺🇾', 'Cape Verde':'🇨🇻', 'Saudi Arabia':'🇸🇦',
+      France:'🇫🇷', Norway:'🇳🇴', Senegal:'🇸🇳', Iraq:'🇮🇶',
+      Argentina:'🇦🇷', Austria:'🇦🇹', Algeria:'🇩🇿', Jordan:'🇯🇴',
+      Colombia:'🇨🇴', 'DR Congo':'🇨🇩', Portugal:'🇵🇹', Uzbekistan:'🇺🇿',
+      England:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', Ghana:'🇬🇭', Panama:'🇵🇦', Croatia:'🇭🇷',
+    };
+    const rndOrder = ['round_of_32', 'round_of_16', 'quarter_finals', 'semi_finals', 'third_place', 'final'];
+    const rndLabels = {'round_of_32':'R32','round_of_16':'R16','quarter_finals':'QF','semi_finals':'SF','third_place':'3rd','final':'Final'};
+    html += '<div class="wc-section">';
+    html += '<div class="wc-header">🏆 淘汰賽<span class="wc-updated">' + koUpdated + '</span></div>';
+    html += '<div class="wc-groups" id="koTabs">';
+    rndOrder.forEach(function(rnd, idx) {
+      var matches = ko[rnd] || [];
+      if (matches.length > 0) {
+        html += '<button class="wc-group-tab' + (idx === 0 ? ' active' : '') + '" data-ko-round="' + rnd + '" onclick="switchKoRound(this)">' + rndLabels[rnd] + '</button>';
+      }
+    });
+    html += '</div>';
+    // Round content
+    rndOrder.forEach(function(rnd, rndIdx) {
+      var matches = ko[rnd] || [];
+      if (matches.length === 0) return;
+      html += '<div class="wc-table-wrap' + (rndIdx === 0 ? ' open' : '') + '" id="koRound-' + rnd + '">';
+      html += '<div style="padding:0.5rem 1rem;">';
+      matches.forEach(function(m) {
+        var isPlayed = (m.score1 !== null && m.score2 !== null);
+        var t1Flag = tFlags[m.team1] || '';
+        var t2Flag = tFlags[m.team2] || '';
+        var t1Label = m.team1.startsWith('Winner') || m.team1.startsWith('Loser') ? 'TBD' : m.team1;
+        var t2Label = m.team2.startsWith('Winner') || m.team2.startsWith('Loser') ? 'TBD' : m.team2;
+        var s1 = m.score1 !== null ? m.score1 : '';
+        var s2 = m.score2 !== null ? m.score2 : '';
+        // Find winner
+        var winner = null;
+        if (isPlayed) {
+          if (m.score1 > m.score2) winner = 't1';
+          else if (m.score2 > m.score1) winner = 't2';
+        }
+        html += '<div class="ko-match">';
+        html += '<div class="ko-meta">' + m.date + ' · ' + m.venue + '</div>';
+        html += '<div class="ko-line' + (winner === 't1' ? ' ko-winner' : '') + '"><span class="ko-team">' + (t1Flag ? t1Flag + ' ' : '') + t1Label + '</span><span class="ko-score' + (isPlayed ? ' ko-scored' : '') + '">' + s1 + '</span></div>';
+        html += '<div class="ko-line' + (winner === 't2' ? ' ko-winner' : '') + '"><span class="ko-team">' + (t2Flag ? t2Flag + ' ' : '') + t2Label + '</span><span class="ko-score' + (isPlayed ? ' ko-scored' : '') + '">' + s2 + '</span></div>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+    });
+    html += '</div>';
+    // KO round switcher JS
+    html += '<script>function switchKoRound(el){var r=el.getAttribute("data-ko-round");el.closest(".wc-section").querySelectorAll(".wc-table-wrap").forEach(function(e){e.classList.remove("open")});var t=document.getElementById("koRound-"+r);if(t)t.classList.add("open");el.closest(".wc-section").querySelectorAll("[data-ko-round]").forEach(function(b){b.classList.remove("active")});el.classList.add("active")}</script>';
   }
   // Show all news as AI summarized cards
   // Filter out advertorial/sponsored/promotional content
