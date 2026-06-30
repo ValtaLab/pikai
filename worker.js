@@ -2358,8 +2358,13 @@ var worker_default = {
     data.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
     const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
     data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-    await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
-    console.log(`Updated: ${data.news.length} news, ${data.tools.length} tools`);
+    // Minimum article threshold: don't overwrite KV with incomplete data
+    if (newsData.news && newsData.news.length >= 15) {
+      await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+      console.log(`[Cron] KV updated: ${data.news.length} news, ${data.tools.length} tools`);
+    } else {
+      console.log(`[Cron] SKIPPED KV write: only ${data.news?.length || 0} articles (min 15 required)`);
+    }
   },
   async fetch(request, env) {
     try {
@@ -2520,12 +2525,19 @@ var worker_default = {
           data.updatedAt = new Date().toISOString();
           const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
           data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-          await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+          // Minimum article threshold: don't overwrite KV with incomplete data
+          if (newsData.news && newsData.news.length >= 15) {
+            await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+            console.log(`[/trigger-news] KV updated: ${data.news.length} news`);
+          } else {
+            console.log(`[/trigger-news] SKIPPED KV write: only ${data.news?.length || 0} articles (min 15 required)`);
+          }
           return new Response(JSON.stringify({
             success: true,
             newsCount: data.news.length,
             toolsCount: data.tools.length,
-            updatedAt: data.updatedAt
+            updatedAt: data.updatedAt,
+            kvWritten: (newsData.news && newsData.news.length >= 15)
           }, null, 2), { headers: { "Content-Type": "application/json" } });
         } catch (e) {
           return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
