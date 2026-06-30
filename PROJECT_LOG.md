@@ -8,9 +8,9 @@ last_update_by: HermesBPi
 
 # AI News Digest 項目進展日誌
 
-## 🚀 最新狀態 (2026-06-06)
-**版本:** `d9ba715a` | **部署時間:** 12:28 HKT | **狀態:** 運行中  
-**代碼大小:** ~161 KiB
+## 🚀 最新狀態 (2026-06-30)
+**版本:** `88449db` | **部署時間:** 11:53 HKT | **狀態:** 運行中  
+**代碼大小:** ~162 KiB
 
 ### 核心功能
 - [x] **5-tab 佈局**: 今日必讀 / AI 影片 / 實用工具 / AI 知識庫 / 應用實例
@@ -33,12 +33,24 @@ last_update_by: HermesBPi
 ### 已知問題
 - Token corruption (code 9109) — OpenRouter 偶爾返回損壞 token
 - ESLint warnings: `yesterday` 未使用、`env` 未使用 (多處)
+- `/trigger-news` Worker 反應慢（40-120s）— 因 AI summarization 同 RSS fetch 耗時
+- Disk 97% full on Pi — log 檔案可能需要清理
+- Wikipedia bracket HTML 結構會變，wc-knockout.py 嘅 regex parsing 需要定期驗證
 
 ---
 
 ## 📝 變更歷史
 
-### 2026-06-21 | Bypass Pi 5 — YouTube transcript 直接由 Worker 處理
+### 2026-06-30 | Minimum article threshold guard + Pi cron fix
+**版本:** 88449db
+- **Type**: Fix
+- **Summary**: 防止低文章數量寫入 KV 破壞好 cache
+- **Details**:
+  - `/trigger-news` endpoint: 加入 ≥15 篇文章 threshold 保護，低於 15 唔寫入 KV
+  - CF `scheduled` handler (00:00 UTC fallback): 同一保護
+  - Pi cron: 移除 `-s` flag（記錄 curl errors），`--max-time` 120s → 180s
+  - 配合 `?refresh=1` 已有嘅 threshold guard（2026-06-27 加入）
+  - 問題鏈：Pi cron timeout → 冇寫 KV → CF fallback 寫 10 篇 → overwrite 30 篇
 **版本:** 20425a9
 - **Type**: 優化
 - **Summary**: Bypass Pi 5 — transcript 直接由 Worker call YouTube internal API

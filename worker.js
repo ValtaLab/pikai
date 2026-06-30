@@ -2990,6 +2990,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       html += '<div class="ko-round-matches">';
       matches.forEach(function(m) {
         var isPlayed = (m.score1 !== null && m.score2 !== null);
+        var isPenalty = isPlayed && m.penalty1 !== undefined && m.penalty2 !== undefined && m.score1 === m.score2;
         var t1Flag = tFlags[m.team1] || '';
         var t2Flag = tFlags[m.team2] || '';
         var t1Label = m.team1.startsWith('Winner') || m.team1.startsWith('Loser') ? 'TBD' : m.team1;
@@ -2998,11 +2999,16 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
         var s2 = m.score2 !== null ? m.score2 : '';
         var winner = null;
         if (isPlayed) {
-          if (m.score1 > m.score2) winner = 't1';
-          else if (m.score2 > m.score1) winner = 't2';
+          if (isPenalty) {
+            if (m.penalty1 > m.penalty2) winner = 't1';
+            else if (m.penalty2 > m.penalty1) winner = 't2';
+          } else {
+            if (m.score1 > m.score2) winner = 't1';
+            else if (m.score2 > m.score1) winner = 't2';
+          }
         }
         html += '<div class="ko-match">';
-        html += '<div class="ko-meta">' + m.date + ' · ' + m.venue + '</div>';
+        html += '<div class="ko-meta">' + m.date + ' · ' + m.venue + (isPenalty ? ' · (p)' : '') + '</div>';
         html += '<div class="ko-line' + (winner === 't1' ? ' ko-winner' : '') + '"><span class="ko-team">' + (t1Flag ? t1Flag + ' ' : '') + t1Label + '</span><span class="ko-score' + (isPlayed ? ' ko-scored' : '') + '">' + s1 + '</span></div>';
         html += '<div class="ko-line' + (winner === 't2' ? ' ko-winner' : '') + '"><span class="ko-team">' + (t2Flag ? t2Flag + ' ' : '') + t2Label + '</span><span class="ko-score' + (isPlayed ? ' ko-scored' : '') + '">' + s2 + '</span></div>';
         html += '</div>';
