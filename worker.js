@@ -3121,8 +3121,8 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     html += '<div class="rank-section">';
     html += '<div class="rank-header">🤖 Model 排行榜</div>';
     html += '<div class="rank-tabs">';
-    html += '<button class="rank-tab active" data-rank="usage">📊 使用量</button>';
-    html += '<button class="rank-tab" data-rank="intel">🧠 智力</button>';
+    html += '<button class="rank-tab active" data-rank="usage" onclick="switchRankTab(\'usage\',this)">📊 使用量</button>';
+    html += '<button class="rank-tab" data-rank="intel" onclick="switchRankTab(\'intel\',this)">🧠 智力</button>';
     html += '</div>';
     // Usage tab
     html += '<div class="rank-content active" id="rank-usage"><table class="rank-table"><tr><th>#</th><th>Model</th><th>Tokens</th><th>請求數</th></tr>';
@@ -3504,7 +3504,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += 'document.addEventListener("keydown",function(e){if(e.key==="Escape")closeVideoModal();});';
   html += 'function switchTab(tabName) { document.querySelector(".hero").scrollIntoView({behavior:"instant"}); document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active")}); document.querySelectorAll(".content-section").forEach(function(s){s.classList.remove("active");s.style.display="none";s.style.visibility="hidden";}); document.querySelector(".tab-"+tabName).classList.add("active"); var sec=document.querySelector(".section-"+tabName); if(sec){sec.classList.add("active");sec.style.display="block";sec.style.visibility="visible";} };';
   html += 'function toggleBlogArticle(index){var article=document.getElementById("blog-post-"+index);if(!article)return;var isExpanded=article.classList.contains("expanded");if(isExpanded){article.classList.remove("expanded");article.classList.add("collapsed");}else{article.classList.remove("collapsed");article.classList.add("expanded");}};';
-  html += 'function switchRankTab(tab,btn){document.querySelectorAll(".rank-content").forEach(function(c){c.classList.remove("active");});document.querySelectorAll(".rank-tab").forEach(function(t){t.classList.remove("active");});btn.classList.add("active");document.getElementById("rank-"+tab).classList.add("active");};document.querySelectorAll(".rank-tab").forEach(function(t){t.addEventListener("click",function(){switchRankTab(this.dataset.rank,this);});});'
+  html += 'function switchRankTab(tab,btn){document.querySelectorAll(".rank-content").forEach(function(c){c.classList.remove("active");});document.querySelectorAll(".rank-tab").forEach(function(t){t.classList.remove("active");});btn.classList.add("active");document.getElementById("rank-"+tab).classList.add("active");};';
   html += 'function sanitize(s) { s=String(s||"").replace(/[<>]/g,function(c){return c=="<"?"&lt;":">";}).replace(/\uFF1B/g,";");return s;};';
   html += 'document.querySelectorAll(".card-title, .card-summary").forEach(function(el){if(!el.dataset.origTitle&&!el.dataset.origName)el.dataset.origTitle=el.textContent;if(!el.dataset.origSummary&&!el.dataset.origDesc)el.dataset.origSummary=el.textContent;});';
   html += 'document.addEventListener("DOMContentLoaded",function(){var lo=document.getElementById("loadingOverlay");if(lo){lo.classList.add("hidden");}document.querySelectorAll(".content-section").forEach(function(s){if(!s.classList.contains("active")){s.style.display="none";s.style.visibility="hidden";s.style.height="0";s.style.maxHeight="0";s.style.overflow="hidden";s.style.opacity="0";}});if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js?v=4").catch(function(e){console.log("SW registration failed:",e)});}});';
