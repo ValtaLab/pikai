@@ -2675,6 +2675,8 @@ async function submitPost() {
       data2.wcStandings = wcRaw ? JSON.parse(wcRaw) : null;
       const koRaw = await env.AI_NEWS_KV.get("worldcup-knockout");
       data2.wcKnockout = koRaw ? JSON.parse(koRaw) : null;
+      const orRankings = await fetchORRankings();
+      data2.orRankings = orRankings;
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
@@ -2706,6 +2708,8 @@ async function submitPost() {
         const koRaw2 = await env.AI_NEWS_KV.get("worldcup-knockout");
         data2.wcKnockout = koRaw2 ? JSON.parse(koRaw2) : null;
       } catch (_e) { data2.wcKnockout = null; }
+      const orRankings2 = await fetchORRankings();
+      data2.orRankings = orRankings2;
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
@@ -2719,6 +2723,8 @@ async function submitPost() {
       data.wcStandings = wcRaw2 ? JSON.parse(wcRaw2) : null;
       const koRaw3 = await env.AI_NEWS_KV.get("worldcup-knockout");
       data.wcKnockout = koRaw3 ? JSON.parse(koRaw3) : null;
+      const orRankings3 = await fetchORRankings();
+      data.orRankings = orRankings3;
       const html = generatePage(data);
       return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
     } catch (err) {
@@ -2738,7 +2744,78 @@ function formatStars(stars) {
   return stars.toString();
 }
 __name(formatStars, "formatStars");
-function generatePage({ news = [], tools = [], videos = [], blogPosts = [], updatedAt, summarizedNews = [], summarizedAt = null, wcStandings = null, wcKnockout = null }) {
+async function fetchORRankings() {
+  try {
+    const [usageRes, modelsRes] = await Promise.all([
+      fetch("https://openrouter.ai/api/frontend/v1/rankings/models?view=week"),
+      fetch("https://openrouter.ai/api/v1/models")
+    ]);
+    if (!usageRes.ok || !modelsRes.ok) {
+      console.log("[ORRankings] API error:", usageRes.status, modelsRes.status);
+      return null;
+    }
+    const usageData = await usageRes.json();
+    const modelsData = await modelsRes.json();
+    const items = usageData.data || [];
+    const models = modelsData.data || [];
+
+    // Aggregate token usage by model
+    const usageMap = {};
+    for (const item of items) {
+      const slug = item.model_permaslug || 'unknown';
+      if (!usageMap[slug]) usageMap[slug] = { prompt: 0, completion: 0, count: 0 };
+      usageMap[slug].prompt += item.total_prompt_tokens || 0;
+      usageMap[slug].completion += item.total_completion_tokens || 0;
+      usageMap[slug].count += item.count || 0;
+    }
+    const usageSorted = Object.entries(usageMap)
+      .map(([k, v]) => ({ ...v, slug: k }))
+      .sort((a, b) => (b.prompt + b.completion) - (a.prompt + a.completion));
+    const usageRanking = usageSorted.slice(0, 15).map((v, i) => {
+      const total = v.prompt + v.completion;
+      return {
+        rank: i + 1,
+        name: v.slug,
+        total: total >= 1e12 ? (total / 1e12).toFixed(1) + 'T' :
+              total >= 1e9 ? (total / 1e9).toFixed(1) + 'B' :
+              (total / 1e6).toFixed(0) + 'M',
+        requests: v.count >= 1e9 ? (v.count / 1e9).toFixed(1) + 'B' :
+                  v.count >= 1e6 ? (v.count / 1e6).toFixed(1) + 'M' :
+                  v.count >= 1e3 ? (v.count / 1e3).toFixed(0) + 'K' :
+                  String(v.count)
+      };
+    });
+
+    // Intelligence ranking from benchmarks
+    const intelList = [];
+    for (const m of models) {
+      const aa = m.benchmarks && m.benchmarks.artificial_analysis;
+      if (aa && aa.intelligence_index != null) {
+        intelList.push({
+          name: m.id || m.name || 'unknown',
+          intel: aa.intelligence_index,
+          coding: aa.coding_index || 0,
+          agent: aa.agentic_index || 0
+        });
+      }
+    }
+    intelList.sort((a, b) => b.intel - a.intel);
+    const intelRanking = intelList.slice(0, 15).map((v, i) => ({
+      rank: i + 1,
+      name: v.name,
+      intel: v.intel.toFixed(1),
+      coding: v.coding.toFixed(1),
+      agent: v.agent.toFixed(1)
+    }));
+
+    return { usage: usageRanking, intelligence: intelRanking };
+  } catch (err) {
+    console.log("[ORRankings] Fetch error:", err.message);
+    return null;
+  }
+}
+__name(fetchORRankings, "fetchORRankings");
+function generatePage({ news = [], tools = [], videos = [], blogPosts = [], updatedAt, summarizedNews = [], summarizedAt = null, wcStandings = null, wcKnockout = null, orRankings = null }) {
   console.log('generatePage called with:', typeof news, typeof tools);
   console.log('  news:', Array.isArray(news) ? `Array(${news.length})` : typeof news);
   console.log('  tools:', Array.isArray(tools) ? `Array(${tools.length})` : typeof tools);
@@ -2936,6 +3013,27 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".ko-score { width: 1.5rem; text-align: center; font-weight: 600; color: #999; flex-shrink: 0; }";
   html += ".ko-score.ko-scored { font-size: 0.9rem; color: #0f172a; }";
   html += ".ko-winner .ko-score { color: #0066ff; }";
+  /* Ranking card */
+  html += ".rank-section { background: #fff; border-radius: 16px; margin-bottom: 1.2rem; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e8e8f0; }";
+  html += ".rank-header { padding: 0.8rem 1rem 0.5rem; font-size: 1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; }";
+  html += ".rank-tabs { display: flex; gap: 0.5rem; padding: 0 1rem 0.75rem; border-bottom: 1px solid #eee; flex-wrap: wrap; }";
+  html += ".rank-tab { padding: 0.35rem 0.9rem; font-size: 0.8rem; font-weight: 600; border-radius: 8px; cursor: pointer; color: #666; background: #f0f2f5; transition: all 0.2s; border: none; white-space: nowrap; }";
+  html += ".rank-tab:hover { background: #e0e3e8; }";
+  html += ".rank-tab.active { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; }";
+  html += ".rank-content { display: none; padding: 0.25rem 0; }";
+  html += ".rank-content.active { display: block; }";
+  html += ".rank-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }";
+  html += ".rank-table th { background: #f8f9fc; color: #666; font-weight: 600; padding: 0.4rem 0.5rem; text-align: right; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e8e8f0; }";
+  html += ".rank-table th:first-child { text-align: center; width: 2rem; }";
+  html += ".rank-table th:nth-child(2) { text-align: left; }";
+  html += ".rank-table td { padding: 0.35rem 0.5rem; text-align: right; border-bottom: 1px solid #f0f0f0; }";
+  html += ".rank-table td:first-child { text-align: center; color: #999; font-weight: 500; }";
+  html += ".rank-table td:nth-child(2) { text-align: left; font-weight: 600; color: #0f172a; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }";
+  html += ".rank-table tr:last-child td { border-bottom: none; }";
+  html += ".rank-table .rank-1 { color: #f59e0b; font-weight: 700; }";
+  html += ".rank-table .rank-2 { color: #94a3b8; font-weight: 600; }";
+  html += ".rank-table .rank-3 { color: #b45309; font-weight: 600; }";
+  html += ".rank-intel { padding: 0.75rem 1rem; font-size: 0.7rem; color: #999; border-top: 1px solid #f0f0f0; }";
   html += "</style>";
   html += "</head>";
   html += '<body>';
@@ -3016,6 +3114,33 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       html += '</div></div>';
     });
     html += '</div>';
+    html += '</div>';
+  }
+  // OpenRouter Model Rankings
+  if (orRankings && orRankings.usage && orRankings.usage.length > 0) {
+    html += '<div class="rank-section">';
+    html += '<div class="rank-header">🤖 Model 排行榜</div>';
+    html += '<div class="rank-tabs">';
+    html += '<button class="rank-tab active" data-rank="usage">📊 使用量</button>';
+    html += '<button class="rank-tab" data-rank="intel">🧠 智力</button>';
+    html += '</div>';
+    // Usage tab
+    html += '<div class="rank-content active" id="rank-usage"><table class="rank-table"><tr><th>#</th><th>Model</th><th>Tokens</th><th>請求數</th></tr>';
+    orRankings.usage.forEach(function(r) {
+      var cls = r.rank <= 3 ? ' rank-' + r.rank : '';
+      html += '<tr><td class="' + cls + '">' + r.rank + '</td><td>' + r.name.split('/').pop() + '</td><td>' + r.total + '</td><td>' + r.requests + '</td></tr>';
+    });
+    html += '</table></div>';
+    // Intel tab
+    html += '<div class="rank-content" id="rank-intel"><table class="rank-table"><tr><th>#</th><th>Model</th><th>智能</th><th>編碼</th><th>Agent</th></tr>';
+    if (orRankings.intelligence) {
+      orRankings.intelligence.forEach(function(r) {
+        var cls = r.rank <= 3 ? ' rank-' + r.rank : '';
+        html += '<tr><td class="' + cls + '">' + r.rank + '</td><td>' + r.name.split('/').pop() + '</td><td>' + r.intel + '</td><td>' + r.coding + '</td><td>' + r.agent + '</td></tr>';
+      });
+    }
+    html += '</table></div>';
+    html += '<div class="rank-intel">數據來源：OpenRouter · 本週</div>';
     html += '</div>';
   }
   // Show all news as AI summarized cards
@@ -3379,6 +3504,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += 'document.addEventListener("keydown",function(e){if(e.key==="Escape")closeVideoModal();});';
   html += 'function switchTab(tabName) { document.querySelector(".hero").scrollIntoView({behavior:"instant"}); document.querySelectorAll(".tab").forEach(function(t){t.classList.remove("active")}); document.querySelectorAll(".content-section").forEach(function(s){s.classList.remove("active");s.style.display="none";s.style.visibility="hidden";}); document.querySelector(".tab-"+tabName).classList.add("active"); var sec=document.querySelector(".section-"+tabName); if(sec){sec.classList.add("active");sec.style.display="block";sec.style.visibility="visible";} };';
   html += 'function toggleBlogArticle(index){var article=document.getElementById("blog-post-"+index);if(!article)return;var isExpanded=article.classList.contains("expanded");if(isExpanded){article.classList.remove("expanded");article.classList.add("collapsed");}else{article.classList.remove("collapsed");article.classList.add("expanded");}};';
+  html += 'function switchRankTab(tab,btn){document.querySelectorAll(".rank-content").forEach(function(c){c.classList.remove("active");});document.querySelectorAll(".rank-tab").forEach(function(t){t.classList.remove("active");});btn.classList.add("active");document.getElementById("rank-"+tab).classList.add("active");};document.querySelectorAll(".rank-tab").forEach(function(t){t.addEventListener("click",function(){switchRankTab(this.dataset.rank,this);});});'
   html += 'function sanitize(s) { s=String(s||"").replace(/[<>]/g,function(c){return c=="<"?"&lt;":">";}).replace(/\uFF1B/g,";");return s;};';
   html += 'document.querySelectorAll(".card-title, .card-summary").forEach(function(el){if(!el.dataset.origTitle&&!el.dataset.origName)el.dataset.origTitle=el.textContent;if(!el.dataset.origSummary&&!el.dataset.origDesc)el.dataset.origSummary=el.textContent;});';
   html += 'document.addEventListener("DOMContentLoaded",function(){var lo=document.getElementById("loadingOverlay");if(lo){lo.classList.add("hidden");}document.querySelectorAll(".content-section").forEach(function(s){if(!s.classList.contains("active")){s.style.display="none";s.style.visibility="hidden";s.style.height="0";s.style.maxHeight="0";s.style.overflow="hidden";s.style.opacity="0";}});if("serviceWorker"in navigator){navigator.serviceWorker.register("/sw.js?v=4").catch(function(e){console.log("SW registration failed:",e)});}});';
