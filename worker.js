@@ -3169,7 +3169,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".rank-table th { background: #fafbfe; color: #888; font-weight: 600; padding: 0.45rem 0.6rem; text-align: right; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid #e8e8f0; }";
   html += ".rank-table th:first-child { text-align: center; width: 2.5rem; }";
   html += ".rank-table th:nth-child(2) { text-align: left; }";
-  html += ".rank-table td { padding: 0.45rem 0.6rem; text-align: right; border-bottom: 1px solid #f5f5f8; transition: background 0.15s; }";
+  html += ".rank-table td { padding: 0.45rem 0.5rem; text-align: right; border-bottom: 1px solid #f5f5f8; transition: background 0.15s; }";
   html += ".rank-table tr:hover td { background: #f8f9ff; }";
   html += ".rank-table td:first-child { text-align: center; }";
   html += ".rank-table td:nth-child(2) { text-align: left; font-weight: 600; color: #0f172a; font-size: 0.76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }";
@@ -3186,15 +3186,15 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".rank-bar-wrap { width: 100%; max-width: 80px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 0.4rem; }";
   html += ".rank-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #0066ff, #7b2dff); transition: width 0.4s ease; }";
   /* Score bars (intel) */
-  html += ".rank-score-wrap { display: flex; align-items: center; gap: 0.35rem; justify-content: flex-end; }";
-  html += ".rank-score-bar { width: 35px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; }";
+  html += ".rank-score-wrap { display: flex; align-items: center; gap: 0.2rem; justify-content: flex-end; }";
+  html += ".rank-score-bar { width: 28px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; flex-shrink: 0; }";
   html += ".rank-score-fill { height: 100%; border-radius: 3px; }";
   html += ".rank-score-fill.intel { background: linear-gradient(90deg, #7b2dff, #a855f7); }";
   html += ".rank-score-fill.coding { background: linear-gradient(90deg, #0066ff, #3b82f6); }";
   html += ".rank-score-fill.agent { background: linear-gradient(90deg, #f59e0b, #f97316); }";
   html += ".rank-score-val { font-size: 0.68rem; font-weight: 600; color: #666; min-width: 1.6rem; text-align: right; }";
   html += ".rank-intel { padding: 0.6rem 1.2rem; font-size: 0.65rem; color: #aaa; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 0.3rem; }";
-  html += "@media (max-width: 700px) { .card-grid { grid-template-columns: 1fr; margin: 0 0.5rem; padding: 0; } .summarized-grid { margin: 0 0.5rem; padding: 0; } .blog-list { margin: 0 0.5rem; padding: 0; } .knowledge-container { padding: 0 0.5rem; } .wc-section, .rank-section { margin-left: 0.5rem; margin-right: 0.5rem; } .tabs { border-radius: 30px; overflow-x: auto; -webkit-overflow-scrolling: touch; justify-content: flex-start; padding-left: 0.5rem; } .tab { padding: 0.5rem 0.6rem; font-size: 0.8rem; gap: 0.3rem; min-width: max-content; flex: none; white-space: nowrap; line-height: 1.2; } .tab-icon { font-size: 1.1rem; } .tab-count { font-size: 0.65rem; padding: 0.1rem 0.3rem; } h1 { font-size: 1.8rem; } .rankings-card-header { font-size: 0.9rem; padding: 0.7rem 0.8rem; } .rankings-table td { padding: 0.4rem 0.4rem; font-size: 0.75rem; } .rankings-table .provider-cell { font-size: 0.68rem; } .knowledge-card { margin-bottom: 1rem; } .logo-svg { width: 176px; } }";
+  html += "@media (max-width: 700px) { .card-grid { grid-template-columns: 1fr; margin: 0 0.5rem; padding: 0; } .summarized-grid { margin: 0 0.5rem; padding: 0; } .blog-list { margin: 0 0.5rem; padding: 0; } .knowledge-container { padding: 0 0.5rem; } .wc-section, .rank-section { margin-left: 0.5rem; margin-right: 0.5rem; } .tabs { border-radius: 30px; overflow-x: auto; -webkit-overflow-scrolling: touch; justify-content: flex-start; padding-left: 0.5rem; } .tab { padding: 0.5rem 0.6rem; font-size: 0.8rem; gap: 0.3rem; min-width: max-content; flex: none; white-space: nowrap; line-height: 1.2; } .tab-icon { font-size: 1.1rem; } .tab-count { font-size: 0.65rem; padding: 0.1rem 0.3rem; } h1 { font-size: 1.8rem; } .rankings-card-header { font-size: 0.9rem; padding: 0.7rem 0.8rem; } .rankings-table td { padding: 0.4rem 0.4rem; font-size: 0.75rem; } .rankings-table .provider-cell { font-size: 0.68rem; } .knowledge-card { margin-bottom: 1rem; } .logo-svg { width: 176px; } .rank-table td { padding: 0.35rem 0.35rem; font-size: 0.7rem; } .rank-table th { padding: 0.35rem 0.35rem; font-size: 0.6rem; } .rank-table td:nth-child(2) { font-size: 0.68rem; max-width: 30vw; } .rank-provider { font-size: 0.5rem; } .rank-score-bar { width: 18px; } .rank-score-val { font-size: 0.6rem; min-width: 1.2rem; } .rank-bar-wrap { max-width: 50px; } .rank-medal { width: 1.2rem; height: 1.2rem; font-size: 0.6rem; } }";
   html += "</style>";
   html += "</head>";
   html += '<body>';
