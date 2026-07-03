@@ -3152,27 +3152,46 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".ko-score { width: 1.5rem; text-align: center; font-weight: 600; color: #999; flex-shrink: 0; }";
   html += ".ko-score.ko-scored { font-size: 0.9rem; color: #0f172a; }";
   html += ".ko-winner .ko-score { color: #0066ff; }";
-  /* Ranking card */
-  html += ".rank-section { background: #fff; border-radius: 16px; margin-bottom: 1.2rem; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e8e8f0; max-width: 1200px; margin-left: auto; margin-right: auto; }";
-  html += ".rank-header { padding: 0.8rem 1rem 0.5rem; font-size: 1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; }";
-  html += ".rank-tabs { display: flex; gap: 0.5rem; padding: 0 1rem 0.75rem; border-bottom: 1px solid #eee; flex-wrap: wrap; }";
-  html += ".rank-tab { padding: 0.35rem 0.9rem; font-size: 0.8rem; font-weight: 600; border-radius: 8px; cursor: pointer; color: #666; background: #f0f2f5; transition: all 0.2s; border: none; white-space: nowrap; }";
-  html += ".rank-tab:hover { background: #e0e3e8; }";
-  html += ".rank-tab.active { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; }";
-  html += ".rank-content { display: none; padding: 0.25rem 0; }";
+  /* Ranking card — premium redesign */
+  html += ".rank-section { background: #fff; border-radius: 16px; margin-bottom: 1.2rem; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid #e8e8f0; max-width: 1200px; margin-left: auto; margin-right: auto; }";
+  html += ".rank-header { padding: 1rem 1.2rem 0.8rem; font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 50%, #faf5ff 100%); border-bottom: 1px solid #eee; }";
+  html += ".rank-header-icon { font-size: 1.3rem; }";
+  html += ".rank-header-sub { font-size: 0.65rem; font-weight: 500; color: #999; margin-left: auto; }";
+  html += ".rank-tabs { display: flex; gap: 0.4rem; padding: 0.6rem 1.2rem; border-bottom: 1px solid #f0f0f5; flex-wrap: wrap; }";
+  html += ".rank-tab { padding: 0.35rem 0.9rem; font-size: 0.78rem; font-weight: 600; border-radius: 20px; cursor: pointer; color: #888; background: #f0f2f5; transition: all 0.2s; border: none; white-space: nowrap; }";
+  html += ".rank-tab:hover { background: #e0e3e8; transform: translateY(-1px); }";
+  html += ".rank-tab.active { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; box-shadow: 0 2px 8px rgba(0,102,255,0.25); }";
+  html += ".rank-content { display: none; padding: 0; }";
   html += ".rank-content.active { display: block; }";
   html += ".rank-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }";
-  html += ".rank-table th { background: #f8f9fc; color: #666; font-weight: 600; padding: 0.4rem 0.5rem; text-align: right; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e8e8f0; }";
-  html += ".rank-table th:first-child { text-align: center; width: 2rem; }";
+  html += ".rank-table th { background: #fafbfe; color: #888; font-weight: 600; padding: 0.45rem 0.6rem; text-align: right; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid #e8e8f0; }";
+  html += ".rank-table th:first-child { text-align: center; width: 2.5rem; }";
   html += ".rank-table th:nth-child(2) { text-align: left; }";
-  html += ".rank-table td { padding: 0.35rem 0.5rem; text-align: right; border-bottom: 1px solid #f0f0f0; }";
-  html += ".rank-table td:first-child { text-align: center; color: #999; font-weight: 500; }";
-  html += ".rank-table td:nth-child(2) { text-align: left; font-weight: 600; color: #0f172a; font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }";
+  html += ".rank-table td { padding: 0.45rem 0.6rem; text-align: right; border-bottom: 1px solid #f5f5f8; transition: background 0.15s; }";
+  html += ".rank-table tr:hover td { background: #f8f9ff; }";
+  html += ".rank-table td:first-child { text-align: center; }";
+  html += ".rank-table td:nth-child(2) { text-align: left; font-weight: 600; color: #0f172a; font-size: 0.76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }";
   html += ".rank-table tr:last-child td { border-bottom: none; }";
-  html += ".rank-table .rank-1 { color: #f59e0b; font-weight: 700; }";
-  html += ".rank-table .rank-2 { color: #94a3b8; font-weight: 600; }";
-  html += ".rank-table .rank-3 { color: #b45309; font-weight: 600; }";
-  html += ".rank-intel { padding: 0.75rem 1rem; font-size: 0.7rem; color: #999; border-top: 1px solid #f0f0f0; }";
+  /* Medal badges */
+  html += ".rank-medal { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; font-size: 0.72rem; font-weight: 800; }";
+  html += ".rank-medal-1 { background: linear-gradient(135deg, #ffd700, #ffa500); color: #fff; box-shadow: 0 2px 6px rgba(255,165,0,0.3); }";
+  html += ".rank-medal-2 { background: linear-gradient(135deg, #e0e0e0, #b0b0b0); color: #fff; box-shadow: 0 2px 6px rgba(176,176,176,0.3); }";
+  html += ".rank-medal-3 { background: linear-gradient(135deg, #cd7f32, #a0522d); color: #fff; box-shadow: 0 2px 6px rgba(205,127,50,0.3); }";
+  html += ".rank-num { color: #aaa; font-weight: 600; font-size: 0.72rem; }";
+  /* Provider tag */
+  html += ".rank-provider { display: inline-block; font-size: 0.58rem; font-weight: 600; color: #888; background: #f0f2f5; border-radius: 4px; padding: 0.08rem 0.32rem; margin-right: 0.35rem; vertical-align: middle; text-transform: uppercase; letter-spacing: 0.02em; }";
+  /* Progress bar (usage) */
+  html += ".rank-bar-wrap { width: 100%; max-width: 80px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 0.4rem; }";
+  html += ".rank-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #0066ff, #7b2dff); transition: width 0.4s ease; }";
+  /* Score bars (intel) */
+  html += ".rank-score-wrap { display: flex; align-items: center; gap: 0.35rem; justify-content: flex-end; }";
+  html += ".rank-score-bar { width: 50px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }";
+  html += ".rank-score-fill { height: 100%; border-radius: 3px; }";
+  html += ".rank-score-fill.intel { background: linear-gradient(90deg, #7b2dff, #a855f7); }";
+  html += ".rank-score-fill.coding { background: linear-gradient(90deg, #0066ff, #3b82f6); }";
+  html += ".rank-score-fill.agent { background: linear-gradient(90deg, #f59e0b, #f97316); }";
+  html += ".rank-score-val { font-size: 0.68rem; font-weight: 600; color: #666; min-width: 1.6rem; text-align: right; }";
+  html += ".rank-intel { padding: 0.6rem 1.2rem; font-size: 0.65rem; color: #aaa; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 0.3rem; }";
   html += "@media (max-width: 700px) { .card-grid { grid-template-columns: 1fr; margin: 0 0.5rem; padding: 0; } .summarized-grid { margin: 0 0.5rem; padding: 0; } .blog-list { margin: 0 0.5rem; padding: 0; } .knowledge-container { padding: 0 0.5rem; } .wc-section, .rank-section { margin-left: 0.5rem; margin-right: 0.5rem; } .tabs { border-radius: 30px; overflow-x: auto; -webkit-overflow-scrolling: touch; justify-content: flex-start; padding-left: 0.5rem; } .tab { padding: 0.5rem 0.6rem; font-size: 0.8rem; gap: 0.3rem; min-width: max-content; flex: none; white-space: nowrap; line-height: 1.2; } .tab-icon { font-size: 1.1rem; } .tab-count { font-size: 0.65rem; padding: 0.1rem 0.3rem; } h1 { font-size: 1.8rem; } .rankings-card-header { font-size: 0.9rem; padding: 0.7rem 0.8rem; } .rankings-table td { padding: 0.4rem 0.4rem; font-size: 0.75rem; } .rankings-table .provider-cell { font-size: 0.68rem; } .knowledge-card { margin-bottom: 1rem; } .logo-svg { width: 176px; } }";
   html += "</style>";
   html += "</head>";
@@ -3256,10 +3275,20 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     html += '</div>';
     html += '</div>';
   }
-  // OpenRouter Model Rankings
+  // OpenRouter Model Rankings — premium redesign
   if (orRankings && orRankings.usage && orRankings.usage.length > 0) {
+    var maxUsage = 0;
+    orRankings.usage.forEach(function(r) { if (r.total > maxUsage) maxUsage = r.total; });
+    var maxIntel = 100, maxCoding = 100, maxAgent = 100;
+    if (orRankings.intelligence) {
+      orRankings.intelligence.forEach(function(r) {
+        if (r.intel > maxIntel) maxIntel = r.intel;
+        if (r.coding > maxCoding) maxCoding = r.coding;
+        if (r.agent > maxAgent) maxAgent = r.agent;
+      });
+    }
     html += '<div class="rank-section">';
-    html += '<div class="rank-header">🤖 Model 排行榜</div>';
+    html += '<div class="rank-header"><span class="rank-header-icon">🏆</span> Model 排行榜<span class="rank-header-sub">OpenRouter · 本週</span></div>';
     html += '<div class="rank-tabs">';
     html += '<button class="rank-tab active" data-rank="usage" onclick="switchRankTab(\'usage\',this)">📊 使用量</button>';
     html += '<button class="rank-tab" data-rank="intel" onclick="switchRankTab(\'intel\',this)">🧠 智力</button>';
@@ -3267,20 +3296,33 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     // Usage tab
     html += '<div class="rank-content active" id="rank-usage"><table class="rank-table"><tr><th>#</th><th>Model</th><th>Tokens</th><th>請求數</th></tr>';
     orRankings.usage.forEach(function(r) {
-      var cls = r.rank <= 3 ? ' rank-' + r.rank : '';
-      html += '<tr><td class="' + cls + '">' + r.rank + '</td><td>' + r.name.split('/').pop().replace(/-\d{8}$/, '') + '</td><td>' + r.total + '</td><td>' + r.requests + '</td></tr>';
+      var cleanName = r.name.split('/').pop().replace(/-\d{8}$/, '');
+      var provider = r.name.split('/')[0] || '';
+      var medal = r.rank === 1 ? '<span class="rank-medal rank-medal-1">1</span>' : r.rank === 2 ? '<span class="rank-medal rank-medal-2">2</span>' : r.rank === 3 ? '<span class="rank-medal rank-medal-3">3</span>' : '<span class="rank-num">' + r.rank + '</span>';
+      var pct = maxUsage > 0 ? Math.round(r.total / maxUsage * 100) : 0;
+      var fmtT = r.total >= 1e9 ? (r.total/1e9).toFixed(1)+'B' : r.total >= 1e6 ? (r.total/1e6).toFixed(1)+'M' : r.total >= 1e3 ? (r.total/1e3).toFixed(1)+'K' : r.total;
+      html += '<tr><td>' + medal + '</td><td><span class="rank-provider">' + provider + '</span>' + cleanName + '</td><td><span style="display:inline-flex;align-items:center;gap:0.3rem">' + fmtT + '<span class="rank-bar-wrap"><span class="rank-bar-fill" style="width:' + pct + '%"></span></span></span></td><td>' + r.requests + '</td></tr>';
     });
     html += '</table></div>';
     // Intel tab
     html += '<div class="rank-content" id="rank-intel"><table class="rank-table"><tr><th>#</th><th>Model</th><th>智能</th><th>編碼</th><th>Agent</th></tr>';
     if (orRankings.intelligence) {
       orRankings.intelligence.forEach(function(r) {
-        var cls = r.rank <= 3 ? ' rank-' + r.rank : '';
-        html += '<tr><td class="' + cls + '">' + r.rank + '</td><td>' + r.name.split('/').pop().replace(/-\d{8}$/, '') + '</td><td>' + r.intel + '</td><td>' + r.coding + '</td><td>' + r.agent + '</td></tr>';
+        var cleanName = r.name.split('/').pop().replace(/-\d{8}$/, '');
+        var provider = r.name.split('/')[0] || '';
+        var medal = r.rank === 1 ? '<span class="rank-medal rank-medal-1">1</span>' : r.rank === 2 ? '<span class="rank-medal rank-medal-2">2</span>' : r.rank === 3 ? '<span class="rank-medal rank-medal-3">3</span>' : '<span class="rank-num">' + r.rank + '</span>';
+        var iPct = Math.round(r.intel / maxIntel * 100);
+        var cPct = Math.round(r.coding / maxCoding * 100);
+        var aPct = Math.round(r.agent / maxAgent * 100);
+        html += '<tr><td>' + medal + '</td><td><span class="rank-provider">' + provider + '</span>' + cleanName + '</td>';
+        html += '<td><div class="rank-score-wrap"><span class="rank-score-bar"><span class="rank-score-fill intel" style="width:' + iPct + '%"></span></span><span class="rank-score-val">' + r.intel + '</span></div></td>';
+        html += '<td><div class="rank-score-wrap"><span class="rank-score-bar"><span class="rank-score-fill coding" style="width:' + cPct + '%"></span></span><span class="rank-score-val">' + r.coding + '</span></div></td>';
+        html += '<td><div class="rank-score-wrap"><span class="rank-score-bar"><span class="rank-score-fill agent" style="width:' + aPct + '%"></span></span><span class="rank-score-val">' + r.agent + '</span></div></td>';
+        html += '</tr>';
       });
     }
     html += '</table></div>';
-    html += '<div class="rank-intel">數據來源：OpenRouter · 本週</div>';
+    html += '<div class="rank-intel">📊 數據來源：OpenRouter API · 每日更新</div>';
     html += '</div>';
   }
   // Show all news as AI summarized cards
