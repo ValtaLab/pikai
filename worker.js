@@ -2543,6 +2543,19 @@ var worker_default = {
           return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
         }
       }
+      if (url.pathname === "/trigger-rankings") {
+        try {
+          const rankings = await fetchORRankings();
+          if (rankings && rankings.usage && rankings.usage.length > 0) {
+            rankings._updatedAt = new Date().toISOString();
+            await env.AI_NEWS_KV.put("or-rankings", JSON.stringify(rankings));
+            console.log(`[/trigger-rankings] KV updated: ${rankings.usage.length} usage, ${rankings.intelligence.length} intel`);
+          }
+          return new Response(JSON.stringify({ success: true, usage: rankings?.usage?.length || 0, intel: rankings?.intelligence?.length || 0 }, null, 2), { headers: { "Content-Type": "application/json" } });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+        }
+      }
       if (url.pathname === "/debug-news") {
         try {
           const newsData = await fetchNewsData(env);
@@ -2675,7 +2688,7 @@ async function submitPost() {
       data2.wcStandings = wcRaw ? JSON.parse(wcRaw) : null;
       const koRaw = await env.AI_NEWS_KV.get("worldcup-knockout");
       data2.wcKnockout = koRaw ? JSON.parse(koRaw) : null;
-      const orRankings = await fetchORRankings();
+      const orRankings = await readORRankings(env);
       data2.orRankings = orRankings;
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
@@ -2708,7 +2721,7 @@ async function submitPost() {
         const koRaw2 = await env.AI_NEWS_KV.get("worldcup-knockout");
         data2.wcKnockout = koRaw2 ? JSON.parse(koRaw2) : null;
       } catch (_e) { data2.wcKnockout = null; }
-      const orRankings2 = await fetchORRankings();
+      const orRankings2 = await readORRankings(env);
       data2.orRankings = orRankings2;
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
@@ -2723,7 +2736,7 @@ async function submitPost() {
       data.wcStandings = wcRaw2 ? JSON.parse(wcRaw2) : null;
       const koRaw3 = await env.AI_NEWS_KV.get("worldcup-knockout");
       data.wcKnockout = koRaw3 ? JSON.parse(koRaw3) : null;
-      const orRankings3 = await fetchORRankings();
+      const orRankings3 = await readORRankings(env);
       data.orRankings = orRankings3;
       const html = generatePage(data);
       return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
@@ -2815,6 +2828,22 @@ async function fetchORRankings() {
   }
 }
 __name(fetchORRankings, "fetchORRankings");
+async function readORRankings(env) {
+  try {
+    const raw = await env.AI_NEWS_KV.get("or-rankings");
+    if (raw) {
+      const data = JSON.parse(raw);
+      const updatedAt = data._updatedAt ? new Date(data._updatedAt) : null;
+      const hoursAgo = updatedAt ? (Date.now() - updatedAt.getTime()) / 3600000 : 999;
+      if (hoursAgo < 25) {
+        console.log(`[ORRankings] KV cache hit: ${hoursAgo.toFixed(1)}h old`);
+        return { usage: data.usage, intelligence: data.intelligence };
+      }
+    }
+  } catch (_) {}
+  return await fetchORRankings();
+}
+__name(readORRankings, "readORRankings");
 function generatePage({ news = [], tools = [], videos = [], blogPosts = [], updatedAt, summarizedNews = [], summarizedAt = null, wcStandings = null, wcKnockout = null, orRankings = null }) {
   console.log('generatePage called with:', typeof news, typeof tools);
   console.log('  news:', Array.isArray(news) ? `Array(${news.length})` : typeof news);
