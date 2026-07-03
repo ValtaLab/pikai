@@ -3009,7 +3009,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".tool-link { display: inline-block; background: linear-gradient(135deg, #f0f4ff, #e8e8f0); color: #0066ff; padding: 0.4rem 0.9rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; text-decoration: none; border: 1px solid rgba(0,102,255,0.15); transition: all 0.2s; }";
   html += ".tool-link:hover { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; text-decoration: none; border-color: transparent; transform: translateY(-1px); }";
   /* World Cup 2026 Standings */
-  html += ".wc-section { background: #fff; border-radius: 16px; margin-bottom: 1.2rem; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e8e8f0; }";
+  html += ".wc-section { background: #fff; border-radius: 16px; margin-bottom: 1.2rem; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e8e8f0; max-width: 1200px; margin-left: auto; margin-right: auto; }";
   html += ".wc-header { padding: 0.8rem 1rem 0.5rem; font-size: 1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; }";
   html += ".wc-header .wc-updated { font-size: 0.7rem; color: #999; font-weight: 400; margin-left: auto; }";
   html += ".wc-groups { display: flex; gap: 0.25rem; padding: 0 1rem 0.5rem; overflow-x: auto; flex-wrap: wrap; }";
@@ -3043,7 +3043,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".ko-score.ko-scored { font-size: 0.9rem; color: #0f172a; }";
   html += ".ko-winner .ko-score { color: #0066ff; }";
   /* Ranking card */
-  html += ".rank-section { background: #fff; border-radius: 16px; margin-bottom: 1.2rem; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e8e8f0; }";
+  html += ".rank-section { background: #fff; border-radius: 16px; margin-bottom: 1.2rem; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e8e8f0; max-width: 1200px; margin-left: auto; margin-right: auto; }";
   html += ".rank-header { padding: 0.8rem 1rem 0.5rem; font-size: 1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; }";
   html += ".rank-tabs { display: flex; gap: 0.5rem; padding: 0 1rem 0.75rem; border-bottom: 1px solid #eee; flex-wrap: wrap; }";
   html += ".rank-tab { padding: 0.35rem 0.9rem; font-size: 0.8rem; font-weight: 600; border-radius: 8px; cursor: pointer; color: #666; background: #f0f2f5; transition: all 0.2s; border: none; white-space: nowrap; }";
