@@ -3162,7 +3162,9 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".rank-tab:hover { background: #e0e3e8; transform: translateY(-1px); }";
   html += ".rank-tab.active { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; box-shadow: 0 2px 8px rgba(0,102,255,0.25); }";
   html += ".rank-content { display: none; padding: 0; }";
-  html += ".rank-content.active { display: block; }";
+  html += ".rank-content.active { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }";
+  html += ".rank-content.active::-webkit-scrollbar { height: 3px; }";
+  html += ".rank-content.active::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }";
   html += ".rank-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }";
   html += ".rank-table th { background: #fafbfe; color: #888; font-weight: 600; padding: 0.45rem 0.6rem; text-align: right; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid #e8e8f0; }";
   html += ".rank-table th:first-child { text-align: center; width: 2.5rem; }";
@@ -3185,7 +3187,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".rank-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #0066ff, #7b2dff); transition: width 0.4s ease; }";
   /* Score bars (intel) */
   html += ".rank-score-wrap { display: flex; align-items: center; gap: 0.35rem; justify-content: flex-end; }";
-  html += ".rank-score-bar { width: 50px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; }";
+  html += ".rank-score-bar { width: 35px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; }";
   html += ".rank-score-fill { height: 100%; border-radius: 3px; }";
   html += ".rank-score-fill.intel { background: linear-gradient(90deg, #7b2dff, #a855f7); }";
   html += ".rank-score-fill.coding { background: linear-gradient(90deg, #0066ff, #3b82f6); }";
