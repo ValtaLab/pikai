@@ -3268,7 +3268,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     html += '<div class="rank-content active" id="rank-usage"><table class="rank-table"><tr><th>#</th><th>Model</th><th>Tokens</th><th>請求數</th></tr>';
     orRankings.usage.forEach(function(r) {
       var cls = r.rank <= 3 ? ' rank-' + r.rank : '';
-      html += '<tr><td class="' + cls + '">' + r.rank + '</td><td>' + r.name.split('/').pop() + '</td><td>' + r.total + '</td><td>' + r.requests + '</td></tr>';
+      html += '<tr><td class="' + cls + '">' + r.rank + '</td><td>' + r.name.split('/').pop().replace(/-\d{8}$/, '') + '</td><td>' + r.total + '</td><td>' + r.requests + '</td></tr>';
     });
     html += '</table></div>';
     // Intel tab
@@ -3276,7 +3276,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     if (orRankings.intelligence) {
       orRankings.intelligence.forEach(function(r) {
         var cls = r.rank <= 3 ? ' rank-' + r.rank : '';
-        html += '<tr><td class="' + cls + '">' + r.rank + '</td><td>' + r.name.split('/').pop() + '</td><td>' + r.intel + '</td><td>' + r.coding + '</td><td>' + r.agent + '</td></tr>';
+        html += '<tr><td class="' + cls + '">' + r.rank + '</td><td>' + r.name.split('/').pop().replace(/-\d{8}$/, '') + '</td><td>' + r.intel + '</td><td>' + r.coding + '</td><td>' + r.agent + '</td></tr>';
       });
     }
     html += '</table></div>';
