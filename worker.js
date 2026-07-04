@@ -562,7 +562,11 @@ var NEWS_SOURCES = [
   { name: "MIT News AI", url: "https://news.mit.edu/rss/topic/artificial-intelligence2" },
   { name: "VentureBeat AI", url: "https://venturebeat.com/category/ai/feed/" },
   { name: "IEEE Spectrum AI", url: "https://spectrum.ieee.org/rss/topic/artificial-intelligence" },
-  { name: "Towards Data Science", url: "https://towardsdatascience.com/feed" }
+  { name: "Towards Data Science", url: "https://towardsdatascience.com/feed" },
+  { name: "Simon Willison", url: "https://simonwillison.net/atom/everything/", format: "atom" },
+  { name: "Lil'Log", url: "https://lilianweng.github.io/index.xml" },
+  { name: "Interconnects", url: "https://www.interconnects.ai/feed" },
+  { name: "Latent Space", url: "https://latent.space/feed" }
 ];
 var EXCLUDED_DOMAINS = [
   "sina.com",
