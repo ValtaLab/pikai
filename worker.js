@@ -3250,7 +3250,6 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       });
     }
     html += '</table></div>';
-    html += '</table></div>';
     html += '<div class="rank-intel">數據來源：OpenRouter API · 每日更新</div>';
     html += '</div>';
   }
