@@ -2873,30 +2873,37 @@ async function fetchORRankings(env) {
       
       // Parse LLM Leaderboard from markdown
       const usageRanking = [];
-      // Pattern: rank number, then name link, by link, tokens, change%
-      const lines = md.split('\n');
-      for (let i = 0; i < lines.length && usageRanking.length < 15; i++) {
-        const rankMatch = lines[i].match(/^(\d+)\.\s*$/);
-        if (!rankMatch) continue;
-        const rank = parseInt(rankMatch[1]);
-        // Next line: model name as markdown link
-        const nameLine = lines[i + 1] || '';
-        const nameMatch = nameLine.match(/\[([^\]]+)\]/);
-        if (!nameMatch) continue;
-        const name = nameMatch[1];
-        // 3 lines later: token count
-        const tokenLine = lines[i + 3] || '';
-        const tokenMatch = tokenLine.match(/^([\d.]+)([TBM])\s*tokens?$/i);
-        if (!tokenMatch) continue;
-        const total = tokenMatch[1] + tokenMatch[2];
-        // Next line: change percentage
-        const changeLine = lines[i + 4] || '';
-        const changeMatch = changeLine.match(/^(-?[\d.]+)%/);
-        let change = changeMatch ? (changeMatch[1] + '%') : '';
-        if (change && change.startsWith('-')) change = '↓' + change.slice(1);
-        else if (change) change = '↑' + change;
-        
-        usageRanking.push({ rank, name, total, change, requests: '' });
+      // First find the LLM Leaderboard section
+      const lbSection = md.match(/## LLM Leaderboard[\s\S]*?(?=## |$)/);
+      if (lbSection) {
+        const lbLines = lbSection[0].split('\n');
+        for (let i = 0; i < lbLines.length && usageRanking.length < 15; i++) {
+          const rankMatch = lbLines[i].match(/^(\d+)\.\s*$/);
+          if (!rankMatch) continue;
+          const rank = parseInt(rankMatch[1]);
+          // Name: skip blank lines and image lines to find the name link
+          let name = '', total = '', change = '';
+          for (let j = 1; j <= 6 && i + j < lbLines.length; j++) {
+            const nm = lbLines[i + j].match(/\[([^\]]+)\]\(https?:\/\/openrouter\.ai\/(?!rankings)[^)]+\)/);
+            if (nm) { name = nm[1]; break; }
+          }
+          // Token count: look for "X.XX T/B tokens" pattern
+          for (let j = 1; j <= 8 && i + j < lbLines.length; j++) {
+            const tm = lbLines[i + j].match(/^([\d.]+)([TBM])\s*tokens?$/i);
+            if (tm) { total = tm[1] + tm[2]; break; }
+          }
+          // Change: look for "+/-X%" pattern
+          for (let j = 1; j <= 8 && i + j < lbLines.length; j++) {
+            const cm = lbLines[i + j].match(/^(-?[\d.]+)%/);
+            if (cm && !lbLines[i + j].includes('/')) {
+              change = cm[1] + '%';
+              if (change.startsWith('-')) change = '↓' + change.slice(1);
+              else change = '↑' + change;
+              break;
+            }
+          }
+          if (name && total) usageRanking.push({ rank, name, total, change, requests: '' });
+        }
       }
       
       // Parse Top Apps from markdown
@@ -2908,13 +2915,14 @@ async function fetchORRankings(env) {
           const rankMatch = appLines[i].match(/^(\d+)\.\s*$/);
           if (!rankMatch) continue;
           const rank = parseInt(rankMatch[1]);
-          const nameLine = appLines[i + 1] || '';
+          // Name line: skip potential image line (2 lines after rank)
+          const nameLine = appLines[i + 2] || '';
           const nameMatch = nameLine.match(/\[([^\]]+)\]/);
           if (!nameMatch) continue;
           const name = nameMatch[1];
-          // Token line: search next few lines for token pattern
+          // Token line: search lines after name
           let total = '';
-          for (let j = 2; j <= 4; j++) {
+          for (let j = 2; j <= 5; j++) {
             const tl = appLines[i + j] || '';
             const tm = tl.match(/^([\d.]+)([TBM])\s*[Tt]okens?$/);
             if (tm) { total = tm[1] + tm[2]; break; }
