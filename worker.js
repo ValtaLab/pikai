@@ -2153,10 +2153,9 @@ async function fetchNewsData(env) {
     console.log(`[fetchNewsData] After dedup: ${news.length} → ${deduped.length} articles`);
     
     // CRITICAL FIX: Cap articles to stay under Cloudflare 50 subrequest limit
-    // Budget: ~31 RSS + up to 5 OG fetches + 10 batch AI (30/3) + tools = ~49
-    // Show 50 articles but only AI-summarize 30 to stay within budget
+    // Budget: ~31 RSS + up to 5 OG fetches + 10 batch AI (50/5) + tools = ~49
     const MAX_ARTICLES = 50;
-    const MAX_SUMMARIZE = 30;
+    const MAX_SUMMARIZE = 50;
     const toProcess = deduped.slice(0, MAX_ARTICLES);
     console.log(`[fetchNewsData] Processing top ${toProcess.length}/${deduped.length} articles (display max ${MAX_ARTICLES}, summarize max ${MAX_SUMMARIZE})`);
     
@@ -2195,7 +2194,7 @@ async function fetchNewsData(env) {
     const summarizeCount = Math.min(withImages.length, MAX_SUMMARIZE);
     console.log(`[fetchNewsData] Summarizing ${summarizeCount} articles with Workers AI (capped at ${MAX_SUMMARIZE} for subrequest budget)...`);
     const summarizedNews = [];
-    const BATCH_SIZE = 3;
+    const BATCH_SIZE = 5;
     const BATCH_DELAY = 3000; // 3 seconds between batches for subrequest safety
     
     for (let batchStart = 0; batchStart < summarizeCount; batchStart += BATCH_SIZE) {
