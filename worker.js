@@ -3338,7 +3338,8 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       var fmtT = typeof r.total === 'string' ? r.total : (r.total >= 1e9 ? (r.total/1e9).toFixed(1)+'B' : r.total >= 1e6 ? (r.total/1e6).toFixed(1)+'M' : r.total >= 1e3 ? (r.total/1e3).toFixed(1)+'K' : r.total);
       var changeHtml = r.change ? '<span class="rank-change">' + r.change + '</span>' : '';
       var pct = typeof maxUsage === 'string' ? 50 : (r.total / maxUsage * 100);
-      html += '<tr><td>' + medal + '</td><td><span class="rank-provider">' + provider + '</span>' + cleanName + '</td><td><span style="display:inline-flex;align-items:center;gap:0.3rem">' + fmtT + '<span class="rank-bar-wrap"><span class="rank-bar-fill" style="width:' + Math.round(pct) + '%"></span></span></span></td><td>' + changeHtml + '</td></tr>';
+      if (isNaN(pct)) pct = 50;
+      html += '<tr><td>' + medal + '</td><td>' + (provider ? '<span class="rank-provider">' + provider + '</span>' : '') + cleanName + '</td><td><span style="display:inline-flex;align-items:center;gap:0.3rem">' + fmtT + '<span class="rank-bar-wrap"><span class="rank-bar-fill" style="width:' + Math.round(pct) + '%"></span></span></span></td><td>' + changeHtml + '</td></tr>';
     });
     html += '</table></div>';
     // Intel tab
