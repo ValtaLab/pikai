@@ -2787,10 +2787,6 @@ async function submitPost() {
       } else {
         console.log(`[?refresh=1] SKIPPED KV write: only ${newsData.news?.length || 0} articles (min 15 required)`);
       }
-      const wcRaw = await env.AI_NEWS_KV.get("worldcup-standings");
-      data2.wcStandings = wcRaw ? JSON.parse(wcRaw) : null;
-      const koRaw = await env.AI_NEWS_KV.get("worldcup-knockout");
-      data2.wcKnockout = koRaw ? JSON.parse(koRaw) : null;
       const orRankings = await readORRankings(env);
       data2.orRankings = orRankings;
       const html2 = generatePage(data2);
@@ -2814,16 +2810,6 @@ async function submitPost() {
       }
       const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
       data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-      // World Cup standings
-      try {
-        const wcRaw = await env.AI_NEWS_KV.get("worldcup-standings");
-        data2.wcStandings = wcRaw ? JSON.parse(wcRaw) : null;
-      } catch (_e) { data2.wcStandings = null; }
-      // World Cup knockout
-      try {
-        const koRaw2 = await env.AI_NEWS_KV.get("worldcup-knockout");
-        data2.wcKnockout = koRaw2 ? JSON.parse(koRaw2) : null;
-      } catch (_e) { data2.wcKnockout = null; }
       const orRankings2 = await readORRankings(env);
       data2.orRankings = orRankings2;
       const html2 = generatePage(data2);
@@ -2835,10 +2821,6 @@ async function submitPost() {
       const data = { ...newsData, tools: toolsData, videos: videosData };
       const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
       data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-      const wcRaw2 = await env.AI_NEWS_KV.get("worldcup-standings");
-      data.wcStandings = wcRaw2 ? JSON.parse(wcRaw2) : null;
-      const koRaw3 = await env.AI_NEWS_KV.get("worldcup-knockout");
-      data.wcKnockout = koRaw3 ? JSON.parse(koRaw3) : null;
       const orRankings3 = await readORRankings(env);
       data.orRankings = orRankings3;
       const html = generatePage(data);
@@ -2947,7 +2929,7 @@ async function readORRankings(env) {
   return await fetchORRankings();
 }
 __name(readORRankings, "readORRankings");
-function generatePage({ news = [], tools = [], videos = [], blogPosts = [], updatedAt, summarizedNews = [], summarizedAt = null, wcStandings = null, wcKnockout = null, orRankings = null }) {
+function generatePage({ news = [], tools = [], videos = [], blogPosts = [], updatedAt, summarizedNews = [], summarizedAt = null, orRankings = null }) {
   console.log('generatePage called with:', typeof news, typeof tools);
   console.log('  news:', Array.isArray(news) ? `Array(${news.length})` : typeof news);
   console.log('  tools:', Array.isArray(tools) ? `Array(${tools.length})` : typeof tools);
@@ -3118,40 +3100,6 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".tool-links-list { display: flex; flex-wrap: wrap; gap: 0.6rem; margin-top: 0.6rem; }";
   html += ".tool-link { display: inline-block; background: linear-gradient(135deg, #f0f4ff, #e8e8f0); color: #0066ff; padding: 0.4rem 0.9rem; border-radius: 8px; font-size: 0.9rem; font-weight: 600; text-decoration: none; border: 1px solid rgba(0,102,255,0.15); transition: all 0.2s; }";
   html += ".tool-link:hover { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; text-decoration: none; border-color: transparent; transform: translateY(-1px); }";
-  /* World Cup 2026 Standings */
-  html += ".wc-section { background: #fff; border-radius: 16px; margin-bottom: 1.2rem; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e8e8f0; max-width: 1200px; margin-left: auto; margin-right: auto; }";
-  html += ".wc-header { padding: 0.8rem 1rem 0.5rem; font-size: 1rem; font-weight: 700; color: #0f172a; display: flex; align-items: center; gap: 0.5rem; }";
-  html += ".wc-header .wc-updated { font-size: 0.7rem; color: #999; font-weight: 400; margin-left: auto; }";
-  html += ".wc-groups { display: flex; gap: 0.25rem; padding: 0 1rem 0.5rem; overflow-x: auto; flex-wrap: wrap; }";
-  html += ".wc-group-tab { padding: 0.25rem 0.6rem; font-size: 0.75rem; font-weight: 600; border-radius: 6px; cursor: pointer; color: #666; background: #f0f2f5; transition: all 0.2s; border: none; }";
-  html += ".wc-group-tab:hover { background: #e0e3e8; }";
-  html += ".wc-group-tab.active { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; }";
-  html += ".wc-table-wrap { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }";
-  html += ".wc-table-wrap.open { max-height: 400px; }";
-  html += ".ko-bracket { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; padding: 0 0.5rem 0.5rem; gap: 0.3rem; }";
-  html += ".ko-round-col { flex: 0 0 auto; min-width: 175px; display: flex; flex-direction: column; }";
-  html += ".ko-round-label { font-size: 0.7rem; font-weight: 700; color: #0066ff; text-align: center; padding: 0.3rem 0; position: sticky; top: 0; background: #fff; z-index: 2; text-transform: uppercase; letter-spacing: 0.05em; }";
-  html += ".ko-round-matches { display: flex; flex-direction: column; justify-content: space-around; flex: 1; gap: 0.3rem; padding-top: 0.2rem; }";
-  html += ".wc-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }";
-  html += ".wc-table th { background: #f8f9fc; color: #666; font-weight: 600; padding: 0.4rem 0.3rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.03em; border-bottom: 1px solid #e8e8f0; }";
-  html += ".wc-table th:first-child { text-align: left; padding-left: 1rem; }";
-  html += ".wc-table td { padding: 0.35rem 0.3rem; text-align: center; border-bottom: 1px solid #f0f0f0; }";
-  html += ".wc-table td:first-child { text-align: left; padding-left: 1rem; font-weight: 600; }";
-  html += ".wc-table .team-name { font-weight: 600; color: #0f172a; font-size: 0.8rem; text-align: left; }";
-  html += ".wc-table .pos-1 { color: #0066ff; }";
-  html += ".wc-table .pts { font-weight: 700; color: #0f172a; font-size: 0.85rem; }";
-  html += ".wc-table .gd-pos { color: #22c55e; }";
-  html += ".wc-table .gd-neg { color: #ef4444; }";
-  html += ".wc-table tr:last-child td { border-bottom: none; }";
-  /* Knockout match cards */
-  html += ".ko-match { background: #f8f9fc; border-radius: 8px; padding: 0.35rem 0.6rem; border: 1px solid #eee; }";
-  html += ".ko-meta { font-size: 0.62rem; color: #aaa; margin-bottom: 0.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }";
-  html += ".ko-line { display: flex; justify-content: space-between; align-items: center; padding: 0.1rem 0; font-size: 0.78rem; }";
-  html += ".ko-line.ko-winner { font-weight: 700; color: #0f172a; }";
-  html += ".ko-team { flex: 1; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }";
-  html += ".ko-score { width: 1.5rem; text-align: center; font-weight: 600; color: #999; flex-shrink: 0; }";
-  html += ".ko-score.ko-scored { font-size: 0.9rem; color: #0f172a; }";
-  html += ".ko-winner .ko-score { color: #0066ff; }";
   /* Custom SVG icons for ranking card (CSS ::before) */
   html += "<style>";
   html += ".rank-header::before { content: ''; width: 1.3rem; height: 1.3rem; flex-shrink: 0; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230066ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3Cpath d='M17 15V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v11'/%3E%3Cpath d='M6 9v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9'/%3E%3C/svg%3E\"); background-size: contain; background-repeat: no-repeat; background-position: center; }";
@@ -3223,65 +3171,6 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += `<div class="tab tab-blog" data-tab-index="4" onclick="switchTab('blog')"><span>應用實例</span></div>`;
   html += "</div>";
   html += '<div class="content-section section-news active">';
-  // World Cup 2026 Knockout Stage
-  if (wcKnockout && wcKnockout.rounds) {
-    const ko = wcKnockout.rounds;
-    const koUpdated = wcKnockout.updatedAt ? wcKnockout.updatedAt.replace('T', ' ').replace('+08:00', '').substring(0, 16) + ' HKT' : '';
-    const tFlags = {
-      Mexico:'🇲🇽', 'South Korea':'🇰🇷', 'Czech Republic':'🇨🇿', 'South Africa':'🇿🇦',
-      Canada:'🇨🇦', Switzerland:'🇨🇭', 'Bosnia and Herzegovina':'🇧🇦', Qatar:'🇶🇦',
-      Brazil:'🇧🇷', Morocco:'🇲🇦', Scotland:'🏴󠁧󠁢󠁳󠁣󠁴󠁿', Haiti:'🇭🇹',
-      'United States':'🇺🇸', Australia:'🇦🇺', Paraguay:'🇵🇾', Turkey:'🇹🇷',
-      Germany:'🇩🇪', 'Ivory Coast':'🇨🇮', Ecuador:'🇪🇨', Curaçao:'🇨🇼',
-      Netherlands:'🇳🇱', Japan:'🇯🇵', Sweden:'🇸🇪', Tunisia:'🇹🇳',
-      Egypt:'🇪🇬', Iran:'🇮🇷', Belgium:'🇧🇪', 'New Zealand':'🇳🇿',
-      Spain:'🇪🇸', Uruguay:'🇺🇾', 'Cape Verde':'🇨🇻', 'Saudi Arabia':'🇸🇦',
-      France:'🇫🇷', Norway:'🇳🇴', Senegal:'🇸🇳', Iraq:'🇮🇶',
-      Argentina:'🇦🇷', Austria:'🇦🇹', Algeria:'🇩🇿', Jordan:'🇯🇴',
-      Colombia:'🇨🇴', 'DR Congo':'🇨🇩', Portugal:'🇵🇹', Uzbekistan:'🇺🇿',
-      England:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', Ghana:'🇬🇭', Panama:'🇵🇦', Croatia:'🇭🇷',
-    };
-    const rndOrder = ['round_of_32', 'round_of_16', 'quarter_finals', 'semi_finals', 'third_place', 'final'];
-    const rndLabels = {'round_of_32':'R32','round_of_16':'R16','quarter_finals':'QF','semi_finals':'SF','third_place':'3rd','final':'Final'};
-    html += '<div class="wc-section">';
-    html += '<div class="wc-header">🏆 淘汰賽<span class="wc-updated">' + koUpdated + '</span></div>';
-    html += '<div class="ko-bracket">';
-    rndOrder.forEach(function(rnd) {
-      var matches = ko[rnd] || [];
-      if (matches.length === 0) return;
-      html += '<div class="ko-round-col">';
-      html += '<div class="ko-round-label">' + rndLabels[rnd] + '</div>';
-      html += '<div class="ko-round-matches">';
-      matches.forEach(function(m) {
-        var isPlayed = (m.score1 !== null && m.score2 !== null);
-        var isPenalty = isPlayed && m.penalty1 !== undefined && m.penalty2 !== undefined && m.score1 === m.score2;
-        var t1Flag = tFlags[m.team1] || '';
-        var t2Flag = tFlags[m.team2] || '';
-        var t1Label = m.team1.startsWith('Winner') || m.team1.startsWith('Loser') ? 'TBD' : m.team1;
-        var t2Label = m.team2.startsWith('Winner') || m.team2.startsWith('Loser') ? 'TBD' : m.team2;
-        var s1 = m.score1 !== null ? m.score1 : '';
-        var s2 = m.score2 !== null ? m.score2 : '';
-        var winner = null;
-        if (isPlayed) {
-          if (isPenalty) {
-            if (m.penalty1 > m.penalty2) winner = 't1';
-            else if (m.penalty2 > m.penalty1) winner = 't2';
-          } else {
-            if (m.score1 > m.score2) winner = 't1';
-            else if (m.score2 > m.score1) winner = 't2';
-          }
-        }
-        html += '<div class="ko-match">';
-        html += '<div class="ko-meta">' + m.date + ' · ' + m.venue + (isPenalty ? ' · (p)' : '') + '</div>';
-        html += '<div class="ko-line' + (winner === 't1' ? ' ko-winner' : '') + '"><span class="ko-team">' + (t1Flag ? t1Flag + ' ' : '') + t1Label + '</span><span class="ko-score' + (isPlayed ? ' ko-scored' : '') + '">' + s1 + '</span></div>';
-        html += '<div class="ko-line' + (winner === 't2' ? ' ko-winner' : '') + '"><span class="ko-team">' + (t2Flag ? t2Flag + ' ' : '') + t2Label + '</span><span class="ko-score' + (isPlayed ? ' ko-scored' : '') + '">' + s2 + '</span></div>';
-        html += '</div>';
-      });
-      html += '</div></div>';
-    });
-    html += '</div>';
-    html += '</div>';
-  }
   // OpenRouter Model Rankings — premium redesign
   if (orRankings && orRankings.usage && orRankings.usage.length > 0) {
     var maxUsage = 0;
