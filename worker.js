@@ -3217,13 +3217,15 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     orRankings.usage.forEach(function(r) {
       var hasSlash = r.name.indexOf('/') >= 0;
       var cleanName = hasSlash ? r.name.split('/').pop().replace(/-\d{8}$/, '') : r.name;
+      // Beautify: deepseek-v4-flash → DeepSeek V4 Flash
+      var displayName = cleanName.replace(/[-_]/g, ' ').replace(/\b\w/g, function(c){return c.toUpperCase();}).replace(/\bV\b/g, 'V').replace(/\bAi\b/g, 'AI').replace(/\bGpt\b/g, 'GPT').replace(/\bGpu\b/g, 'GPU').replace(/\bCpu\b/g, 'CPU').replace(/\bClaude\b/g, 'Claude').replace(/\bSonnet\b/g, 'Sonnet').replace(/\bOpus\b/g, 'Opus').replace(/\bHaiku\b/g, 'Haiku').replace(/\bFlash\b/g, 'Flash').replace(/\bPro\b/g, 'Pro').replace(/\bMini\b/g, 'Mini').replace(/\bMax\b/g, 'Max').replace(/\bUltra\b/g, 'Ultra').replace(/\bAlpha\b/g, 'Alpha').replace(/\bPreview\b/g, 'Preview').replace(/\bLaguna\b/g, 'Laguna').replace(/\bNemotron\b/g, 'Nemotron').replace(/\bGemini\b/g, 'Gemini').replace(/\bMimo\b/g, 'MiMo').replace(/\bOwl\b/g, 'Owl').replace(/\bHy3\b/g, 'Hy3').replace(/\bStep\b/g, 'Step').replace(/\bGrok\b/g, 'Grok').replace(/ V(\d)/g, ' V$1').replace(/ (\d)/g, ' $1');
       var provider = hasSlash ? r.name.split('/')[0] || '' : '';
       var medal = r.rank === 1 ? '<span class="rank-medal rank-medal-1">1</span>' : r.rank === 2 ? '<span class="rank-medal rank-medal-2">2</span>' : r.rank === 3 ? '<span class="rank-medal rank-medal-3">3</span>' : '<span class="rank-num">' + r.rank + '</span>';
       var fmtT = typeof r.total === 'string' ? r.total : (r.total >= 1e9 ? (r.total/1e9).toFixed(1)+'B' : r.total >= 1e6 ? (r.total/1e6).toFixed(1)+'M' : r.total >= 1e3 ? (r.total/1e3).toFixed(1)+'K' : r.total);
       var changeHtml = r.change ? '<span class="rank-change' + (r.change.indexOf('↓') >= 0 ? ' negative' : '') + '">' + r.change + '</span>' : '';
       var pct = typeof maxUsage === 'string' ? 50 : (r.total / maxUsage * 100);
       if (isNaN(pct)) pct = 50;
-      html += '<tr><td>' + medal + '</td><td>' + (provider ? '<span class="rank-provider">' + provider + '</span>' : '') + cleanName + '</td><td><span style="display:inline-flex;align-items:center;gap:0.3rem">' + fmtT + '<span class="rank-bar-wrap"><span class="rank-bar-fill" style="width:' + Math.round(pct) + '%"></span></span></span></td><td>' + changeHtml + '</td></tr>';
+      html += '<tr><td>' + medal + '</td><td>' + (provider ? '<span class="rank-provider">' + provider + '</span>' : '') + displayName + '</td><td><span style="display:inline-flex;align-items:center;gap:0.3rem">' + fmtT + '<span class="rank-bar-wrap"><span class="rank-bar-fill" style="width:' + Math.round(pct) + '%"></span></span></span></td><td>' + changeHtml + '</td></tr>';
     });
     html += '</table></div>';
     // Intel tab
