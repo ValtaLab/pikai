@@ -2847,151 +2847,6 @@ function formatStars(stars) {
 }
 __name(formatStars, "formatStars");
 async function fetchORRankings(env) {
-  // Use Firecrawl if API key is available (free tier ~500 pages/month, 1 call/day = 30/month)
-  if (env && env.FIRECRAWL_API_KEY) {
-    try {
-      const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
-        method: "POST",
-        headers: {
-          "Authorization": "Bearer " + env.FIRECRAWL_API_KEY,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          url: "https://openrouter.ai/rankings",
-          formats: ["markdown"],
-          onlyMainContent: false,
-          waitFor: 5000
-        })
-      });
-      if (!resp.ok) throw new Error("Firecrawl HTTP " + resp.status);
-      const body = await resp.json();
-      if (!body.success) throw new Error("Firecrawl API error");
-      const md = body.data.markdown || "";
-      
-      // Parse LLM Leaderboard from markdown
-      const usageRanking = [];
-      // First find the LLM Leaderboard section
-      const lbSection = md.match(/## LLM Leaderboard[\s\S]*?(?=## |$)/);
-      if (lbSection) {
-        const lbLines = lbSection[0].split('\n');
-        for (let i = 0; i < lbLines.length && usageRanking.length < 15; i++) {
-          const rankMatch = lbLines[i].match(/^(\d+)\.\s*$/);
-          if (!rankMatch) continue;
-          const rank = parseInt(rankMatch[1]);
-          // Name: skip image lines (! prefix) and blank lines to find the model link
-          let name = '', slug = '', total = '', change = '';
-          for (let j = 1; j <= 8 && i + j < lbLines.length; j++) {
-            const line = lbLines[i + j];
-            if (line.startsWith('!')) continue; // skip image lines
-            const nm = line.match(/\[([^\]]+)\]\(https?:\/\/openrouter\.ai\/([^)\s]+)\)/);
-            if (nm && !line.startsWith('!')) { name = nm[1]; slug = nm[2]; break; }
-          }
-          // Token count: look for "X.XX T/B tokens" pattern
-          for (let j = 1; j <= 10 && i + j < lbLines.length; j++) {
-            const tm = lbLines[i + j].match(/^([\d.]+)([TBM])\s*tokens?$/i);
-            if (tm) { total = tm[1] + tm[2]; break; }
-          }
-          // Change: look for "+/-X%" pattern (further down after "by [provider]" line)
-          for (let j = 1; j <= 12 && i + j < lbLines.length; j++) {
-            const cm = lbLines[i + j].match(/^(-?[\d.]+)%$/);
-            if (cm) {
-              change = cm[1] + '%';
-              if (change.startsWith('-')) change = '↓' + change.slice(1);
-              else change = '↑' + change;
-              break;
-            }
-          }
-          if (name && total) usageRanking.push({ rank, name, slug, total, change, requests: '' });
-        }
-      }
-      
-      // Augment Firecrawl data with API change data (API has accurate +/- values)
-      try {
-        const apiResp = await fetch("https://openrouter.ai/api/frontend/v1/rankings/models?view=week");
-        if (apiResp.ok) {
-          const apiData = await apiResp.json();
-          const apiItems = apiData.data || [];
-          // Build a slug→change map from API (use last non-null change per slug)
-          const changeMap = {};
-          for (const item of apiItems) {
-            const slug = item.model_permaslug || '';
-            if (slug && item.change != null) {
-              changeMap[slug] = item.change;
-            }
-          }
-          // Merge change data into usageRanking using direct URL slug matching
-          for (const r of usageRanking) {
-            if (!r.slug) continue;
-            const apiChange = changeMap[r.slug];
-            if (apiChange != null) {
-              const pct = Math.round(apiChange * 100);
-              if (pct > 0) r.change = '↑' + pct + '%';
-              else if (pct < 0) r.change = '↓' + Math.abs(pct) + '%';
-              else r.change = '0%';
-            }
-          }
-        }
-      } catch (_) {}
-      
-      // Parse Top Apps from markdown
-      const appsRanking = [];
-      const appsSection = md.match(/\[[^\]]*Top Apps[^\]]*\]\([^)]+\)([\s\S]*?)(?=\[[^\]]*Languages[^\]]*\]|\[[^\]]*Programming[^\]]*\]|##|$)/);
-      if (appsSection) {
-        const appLines = appsSection[1].split('\n');
-        for (let i = 0; i < appLines.length && appsRanking.length < 10; i++) {
-          const rankMatch = appLines[i].match(/^(\d+)\.\s*$/);
-          if (!rankMatch) continue;
-          const rank = parseInt(rankMatch[1]);
-          // Name: find app link matching openrouter.ai/apps/ pattern, skip image/description lines
-          let name = '', total = '';
-          for (let j = 1; j <= 5 && i + j < appLines.length; j++) {
-            const line = appLines[i + j];
-            if (!line || line.startsWith('!') || line.includes('Favicon') || line.includes('Browse')) continue;
-            const nm = line.match(/\[([^\]]+)\]\(https?:\/\/openrouter\.ai\/apps\/[^)]+\)/);
-            if (nm) { name = nm[1]; break; }
-          }
-          // Token line: search for "X.XX B/tokens" pattern
-          for (let j = 2; j <= 8; j++) {
-            const tl = appLines[i + j] || '';
-            const tm = tl.match(/^([\d.]+)([TBM])\s*[Tt]okens?$/);
-            if (tm) { total = tm[1] + tm[2]; break; }
-          }
-          if (name && total) appsRanking.push({ rank, name, total });
-        }
-      }
-      
-      // Intelligence ranking from /api/v1/models (still needed for intel tab)
-      const modelsRes = await fetch("https://openrouter.ai/api/v1/models");
-      const modelsData = modelsRes.ok ? await modelsRes.json() : { data: [] };
-      const models = modelsData.data || [];
-      const intelList = [];
-      for (const m of models) {
-        const aa = m.benchmarks && m.benchmarks.artificial_analysis;
-        if (aa && aa.intelligence_index != null) {
-          intelList.push({
-            name: m.id || m.name || 'unknown',
-            intel: aa.intelligence_index,
-            coding: aa.coding_index || 0,
-            agent: aa.agentic_index || 0
-          });
-        }
-      }
-      intelList.sort((a, b) => b.intel - a.intel);
-      const intelRanking = intelList.slice(0, 15).map((v, i) => ({
-        rank: i + 1,
-        name: v.name,
-        intel: v.intel.toFixed(1),
-        coding: v.coding.toFixed(1),
-        agent: v.agent.toFixed(1)
-      }));
-      
-      return { usage: usageRanking, intelligence: intelRanking, apps: appsRanking };
-    } catch (e) {
-      console.log("[ORRankings] Firecrawl error:", e.message, "- falling back to API");
-    }
-  }
-  
-  // Fallback: use internal API
   try {
     const [usageRes, modelsRes] = await Promise.all([
       fetch("https://openrouter.ai/api/frontend/v1/rankings/models?view=week"),
@@ -3014,7 +2869,6 @@ async function fetchORRankings(env) {
       usageMap[slug].prompt += item.total_prompt_tokens || 0;
       usageMap[slug].completion += item.total_completion_tokens || 0;
       usageMap[slug].count += item.count || 0;
-      // Use first non-null change found for this model
       if (usageMap[slug].change === null && item.change != null) {
         usageMap[slug].change = item.change;
       }
@@ -3024,7 +2878,6 @@ async function fetchORRankings(env) {
       .sort((a, b) => (b.prompt + b.completion) - (a.prompt + a.completion));
     const usageRanking = usageSorted.slice(0, 15).map((v, i) => {
       const total = v.prompt + v.completion;
-      // Convert change factor to percentage with arrow
       let change = '';
       if (v.change != null) {
         const pct = Math.round(v.change * 100);
@@ -3080,16 +2933,11 @@ async function readORRankings(env) {
     const raw = await env.AI_NEWS_KV.get("or-rankings");
     if (raw) {
       const data = JSON.parse(raw);
-      // Version check: new format has 'apps' field, skip old cache
-      if (data.apps && data.apps.length > 0) {
-        const updatedAt = data._updatedAt ? new Date(data._updatedAt) : null;
-        const hoursAgo = updatedAt ? (Date.now() - updatedAt.getTime()) / 3600000 : 999;
-        if (hoursAgo < 25) {
-          console.log(`[ORRankings] KV cache hit: ${hoursAgo.toFixed(1)}h old`);
-          return { usage: data.usage, intelligence: data.intelligence, apps: data.apps };
-        }
-      } else {
-        console.log("[ORRankings] Old KV cache format, skipping");
+      const updatedAt = data._updatedAt ? new Date(data._updatedAt) : null;
+      const hoursAgo = updatedAt ? (Date.now() - updatedAt.getTime()) / 3600000 : 999;
+      if (hoursAgo < 25 && data.usage && data.intelligence) {
+        console.log(`[ORRankings] KV cache hit: ${hoursAgo.toFixed(1)}h old`);
+        return { usage: data.usage, intelligence: data.intelligence };
       }
     }
   } catch (_) {}
@@ -3363,7 +3211,6 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     html += '<div class="rank-tabs">';
     html += '<button class="rank-tab active" data-rank="usage" onclick="switchRankTab(\'usage\',this)">使用量</button>';
     html += '<button class="rank-tab" data-rank="intel" onclick="switchRankTab(\'intel\',this)">智力</button>';
-    html += '<button class="rank-tab" data-rank="apps" onclick="switchRankTab(\'apps\',this)">Apps</button>';
     html += '</div>';
     // Usage tab
     html += '<div class="rank-content active" id="rank-usage"><table class="rank-table"><tr><th>#</th><th>Model</th><th>Tokens</th><th>Trend</th></tr>';
@@ -3397,16 +3244,6 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       });
     }
     html += '</table></div>';
-    // Apps tab
-    html += '<div class="rank-content" id="rank-apps"><table class="rank-table"><tr><th>#</th><th>App</th><th>Tokens</th></tr>';
-    if (orRankings.apps && orRankings.apps.length > 0) {
-      orRankings.apps.forEach(function(r) {
-        var medal = r.rank === 1 ? '<span class="rank-medal rank-medal-1">1</span>' : r.rank === 2 ? '<span class="rank-medal rank-medal-2">2</span>' : r.rank === 3 ? '<span class="rank-medal rank-medal-3">3</span>' : '<span class="rank-num">' + r.rank + '</span>';
-        html += '<tr><td>' + medal + '</td><td>' + escapeHtml(r.name) + '</td><td><span style="font-weight:600">' + r.total + '</span></td></tr>';
-      });
-    } else {
-      html += '<tr><td colspan="3" style="text-align:center;color:#999">暫無數據</td></tr>';
-    }
     html += '</table></div>';
     html += '<div class="rank-intel">數據來源：OpenRouter API · 每日更新</div>';
     html += '</div>';
