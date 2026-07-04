@@ -2883,7 +2883,7 @@ async function fetchORRankings(env) {
           for (let j = 1; j <= 8 && i + j < lbLines.length; j++) {
             const line = lbLines[i + j];
             if (line.startsWith('!')) continue; // skip image lines
-            const nm = line.match(/\[([^\]]+)\]\(https:\/\/openrouter\.ai\/([^)\s]+)\)/);
+            const nm = line.match(/\[([^\]]+)\]\(https?:\/\/openrouter\.ai\/([^)\s]+)\)/);
             if (nm && !line.startsWith('!')) { name = nm[1]; slug = nm[2]; break; }
           }
           // Token count: look for "X.XX T/B tokens" pattern
