@@ -2153,10 +2153,12 @@ async function fetchNewsData(env) {
     console.log(`[fetchNewsData] After dedup: ${news.length} → ${deduped.length} articles`);
     
     // CRITICAL FIX: Cap articles to stay under Cloudflare 50 subrequest limit
-    // Budget: ~29 RSS + up to 5 OG fetches + 10 batch AI (30/3) + tools
+    // Budget: ~31 RSS + up to 5 OG fetches + 10 batch AI (30/3) + tools = ~49
+    // Show 50 articles but only AI-summarize 30 to stay within budget
     const MAX_ARTICLES = 50;
+    const MAX_SUMMARIZE = 30;
     const toProcess = deduped.slice(0, MAX_ARTICLES);
-    console.log(`[fetchNewsData] Processing top ${toProcess.length}/${deduped.length} articles (subrequest budget cap)`);
+    console.log(`[fetchNewsData] Processing top ${toProcess.length}/${deduped.length} articles (display max ${MAX_ARTICLES}, summarize max ${MAX_SUMMARIZE})`);
     
     // OG images: KV cache first, then limited new fetches for articles without RSS images
     const withImages = [];
@@ -2190,13 +2192,14 @@ async function fetchNewsData(env) {
     }
     
     // Summarize with Workers AI + NVIDIA fallback (batch to stay under subrequest limit)
-    console.log(`[fetchNewsData] Summarizing ${withImages.length} articles with Workers AI...`);
+    const summarizeCount = Math.min(withImages.length, MAX_SUMMARIZE);
+    console.log(`[fetchNewsData] Summarizing ${summarizeCount} articles with Workers AI (capped at ${MAX_SUMMARIZE} for subrequest budget)...`);
     const summarizedNews = [];
     const BATCH_SIZE = 3;
     const BATCH_DELAY = 3000; // 3 seconds between batches for subrequest safety
     
-    for (let batchStart = 0; batchStart < withImages.length; batchStart += BATCH_SIZE) {
-      const batchEnd = Math.min(batchStart + BATCH_SIZE, withImages.length);
+    for (let batchStart = 0; batchStart < summarizeCount; batchStart += BATCH_SIZE) {
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, summarizeCount);
       console.log(`[fetchNewsData] Processing batch ${Math.floor(batchStart/BATCH_SIZE) + 1}: ${batchStart}-${batchEnd-1} of ${withImages.length}`);
 
       const itemsToSummarize = [];
@@ -2347,7 +2350,7 @@ async function fetchNewsData(env) {
         await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
       }
     }
-    console.log(`[fetchNewsData] Summarized ${summarizedNews.length}/${toProcess.length} articles (cached hits saved quota)`);
+    console.log(`[fetchNewsData] Summarized ${summarizedNews.length}/${summarizeCount} articles (cached hits saved quota)`);
     
     // Merge: use summarized articles first, then fill remaining slots from deduped
     const newsToPick = [...summarizedNews];
@@ -2898,7 +2901,7 @@ async function fetchORRankings(env) {
       
       // Parse Top Apps from markdown
       const appsRanking = [];
-      const appsSection = md.match(/\*\*\[Top Apps\]\([^)]+\)\*\*([\s\S]*?)(?=\*\*\[Languages\]|\*\*\[Programming\]|##|$)/);
+      const appsSection = md.match(/\[Top Apps\]\([^)]+\)([\s\S]*?)(?=\[Languages\]|\[Programming\]|##|$)/);
       if (appsSection) {
         const appLines = appsSection[1].split('\n');
         for (let i = 0; i < appLines.length && appsRanking.length < 10; i++) {
@@ -3028,11 +3031,16 @@ async function readORRankings(env) {
     const raw = await env.AI_NEWS_KV.get("or-rankings");
     if (raw) {
       const data = JSON.parse(raw);
-      const updatedAt = data._updatedAt ? new Date(data._updatedAt) : null;
-      const hoursAgo = updatedAt ? (Date.now() - updatedAt.getTime()) / 3600000 : 999;
-      if (hoursAgo < 25) {
-        console.log(`[ORRankings] KV cache hit: ${hoursAgo.toFixed(1)}h old`);
-        return { usage: data.usage, intelligence: data.intelligence, apps: data.apps };
+      // Version check: new format has 'apps' field, skip old cache
+      if (data.apps && data.apps.length > 0) {
+        const updatedAt = data._updatedAt ? new Date(data._updatedAt) : null;
+        const hoursAgo = updatedAt ? (Date.now() - updatedAt.getTime()) / 3600000 : 999;
+        if (hoursAgo < 25) {
+          console.log(`[ORRankings] KV cache hit: ${hoursAgo.toFixed(1)}h old`);
+          return { usage: data.usage, intelligence: data.intelligence, apps: data.apps };
+        }
+      } else {
+        console.log("[ORRankings] Old KV cache format, skipping");
       }
     }
   } catch (_) {}
