@@ -2917,14 +2917,16 @@ async function fetchORRankings(env) {
           const rankMatch = appLines[i].match(/^(\d+)\.\s*$/);
           if (!rankMatch) continue;
           const rank = parseInt(rankMatch[1]);
-          // Name: find app link matching openrouter.ai/apps/ pattern, skip description lines
+          // Name: find app link matching openrouter.ai/apps/ pattern, skip image/description lines
           let name = '', total = '';
           for (let j = 1; j <= 5 && i + j < appLines.length; j++) {
-            const nm = appLines[i + j].match(/\[([^\]]+)\]\(https?:\/\/openrouter\.ai\/apps\/[^)]+\)/);
+            const line = appLines[i + j];
+            if (!line || line.startsWith('!') || line.includes('Favicon') || line.includes('Browse')) continue;
+            const nm = line.match(/\[([^\]]+)\]\(https?:\/\/openrouter\.ai\/apps\/[^)]+\)/);
             if (nm) { name = nm[1]; break; }
           }
           // Token line: search for "X.XX B/tokens" pattern
-          for (let j = 2; j <= 6; j++) {
+          for (let j = 2; j <= 8; j++) {
             const tl = appLines[i + j] || '';
             const tm = tl.match(/^([\d.]+)([TBM])\s*[Tt]okens?$/);
             if (tm) { total = tm[1] + tm[2]; break; }
