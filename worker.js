@@ -2896,6 +2896,30 @@ async function fetchORRankings(env) {
         usageRanking.push({ rank, name, total, change, requests: '' });
       }
       
+      // Parse Top Apps from markdown
+      const appsRanking = [];
+      const appsSection = md.match(/\*\*\[Top Apps\]\([^)]+\)\*\*([\s\S]*?)(?=\*\*\[Languages\]|\*\*\[Programming\]|##|$)/);
+      if (appsSection) {
+        const appLines = appsSection[1].split('\n');
+        for (let i = 0; i < appLines.length && appsRanking.length < 10; i++) {
+          const rankMatch = appLines[i].match(/^(\d+)\.\s*$/);
+          if (!rankMatch) continue;
+          const rank = parseInt(rankMatch[1]);
+          const nameLine = appLines[i + 1] || '';
+          const nameMatch = nameLine.match(/\[([^\]]+)\]/);
+          if (!nameMatch) continue;
+          const name = nameMatch[1];
+          // Token line: search next few lines for token pattern
+          let total = '';
+          for (let j = 2; j <= 4; j++) {
+            const tl = appLines[i + j] || '';
+            const tm = tl.match(/^([\d.]+)([TBM])\s*[Tt]okens?$/);
+            if (tm) { total = tm[1] + tm[2]; break; }
+          }
+          appsRanking.push({ rank, name, total });
+        }
+      }
+      
       // Intelligence ranking from /api/v1/models (still needed for intel tab)
       const modelsRes = await fetch("https://openrouter.ai/api/v1/models");
       const modelsData = modelsRes.ok ? await modelsRes.json() : { data: [] };
@@ -2921,7 +2945,7 @@ async function fetchORRankings(env) {
         agent: v.agent.toFixed(1)
       }));
       
-      return { usage: usageRanking, intelligence: intelRanking };
+      return { usage: usageRanking, intelligence: intelRanking, apps: appsRanking };
     } catch (e) {
       console.log("[ORRankings] Firecrawl error:", e.message, "- falling back to API");
     }
@@ -3008,7 +3032,7 @@ async function readORRankings(env) {
       const hoursAgo = updatedAt ? (Date.now() - updatedAt.getTime()) / 3600000 : 999;
       if (hoursAgo < 25) {
         console.log(`[ORRankings] KV cache hit: ${hoursAgo.toFixed(1)}h old`);
-        return { usage: data.usage, intelligence: data.intelligence };
+        return { usage: data.usage, intelligence: data.intelligence, apps: data.apps };
       }
     }
   } catch (_) {}
@@ -3282,6 +3306,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     html += '<div class="rank-tabs">';
     html += '<button class="rank-tab active" data-rank="usage" onclick="switchRankTab(\'usage\',this)">使用量</button>';
     html += '<button class="rank-tab" data-rank="intel" onclick="switchRankTab(\'intel\',this)">智力</button>';
+    html += '<button class="rank-tab" data-rank="apps" onclick="switchRankTab(\'apps\',this)">Apps</button>';
     html += '</div>';
     // Usage tab
     html += '<div class="rank-content active" id="rank-usage"><table class="rank-table"><tr><th>#</th><th>Model</th><th>Tokens</th><th>Trend</th></tr>';
@@ -3311,6 +3336,17 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
         html += '<td><div class="rank-score-wrap"><span class="rank-score-bar"><span class="rank-score-fill agent" style="width:' + aPct + '%"></span></span><span class="rank-score-val">' + r.agent + '</span></div></td>';
         html += '</tr>';
       });
+    }
+    html += '</table></div>';
+    // Apps tab
+    html += '<div class="rank-content" id="rank-apps"><table class="rank-table"><tr><th>#</th><th>App</th><th>Tokens</th></tr>';
+    if (orRankings.apps && orRankings.apps.length > 0) {
+      orRankings.apps.forEach(function(r) {
+        var medal = r.rank === 1 ? '<span class="rank-medal rank-medal-1">1</span>' : r.rank === 2 ? '<span class="rank-medal rank-medal-2">2</span>' : r.rank === 3 ? '<span class="rank-medal rank-medal-3">3</span>' : '<span class="rank-num">' + r.rank + '</span>';
+        html += '<tr><td>' + medal + '</td><td>' + escapeHtml(r.name) + '</td><td><span style="font-weight:600">' + r.total + '</span></td></tr>';
+      });
+    } else {
+      html += '<tr><td colspan="3" style="text-align:center;color:#999">暫無數據</td></tr>';
     }
     html += '</table></div>';
     html += '<div class="rank-intel">數據來源：OpenRouter API · 每日更新</div>';
