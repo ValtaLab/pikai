@@ -2846,7 +2846,88 @@ function formatStars(stars) {
   return stars.toString();
 }
 __name(formatStars, "formatStars");
-async function fetchORRankings() {
+async function fetchORRankings(env) {
+  // Use Firecrawl if API key is available (free tier ~500 pages/month, 1 call/day = 30/month)
+  if (env && env.FIRECRAWL_API_KEY) {
+    try {
+      const resp = await fetch("https://api.firecrawl.dev/v1/scrape", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + env.FIRECRAWL_API_KEY,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          url: "https://openrouter.ai/rankings",
+          formats: ["markdown"],
+          onlyMainContent: false,
+          waitFor: 5000
+        })
+      });
+      if (!resp.ok) throw new Error("Firecrawl HTTP " + resp.status);
+      const body = await resp.json();
+      if (!body.success) throw new Error("Firecrawl API error");
+      const md = body.data.markdown || "";
+      
+      // Parse LLM Leaderboard from markdown
+      const usageRanking = [];
+      // Pattern: rank number, then name link, by link, tokens, change%
+      const lines = md.split('\n');
+      for (let i = 0; i < lines.length && usageRanking.length < 15; i++) {
+        const rankMatch = lines[i].match(/^(\d+)\.\s*$/);
+        if (!rankMatch) continue;
+        const rank = parseInt(rankMatch[1]);
+        // Next line: model name as markdown link
+        const nameLine = lines[i + 1] || '';
+        const nameMatch = nameLine.match(/\[([^\]]+)\]/);
+        if (!nameMatch) continue;
+        const name = nameMatch[1];
+        // 3 lines later: token count
+        const tokenLine = lines[i + 3] || '';
+        const tokenMatch = tokenLine.match(/^([\d.]+)([TBM])\s*tokens?$/i);
+        if (!tokenMatch) continue;
+        const total = tokenMatch[1] + tokenMatch[2];
+        // Next line: change percentage
+        const changeLine = lines[i + 4] || '';
+        const changeMatch = changeLine.match(/^(-?[\d.]+)%/);
+        let change = changeMatch ? (changeMatch[1] + '%') : '';
+        if (change && change.startsWith('-')) change = '↓' + change.slice(1);
+        else if (change) change = '↑' + change;
+        
+        usageRanking.push({ rank, name, total, change, requests: '' });
+      }
+      
+      // Intelligence ranking from /api/v1/models (still needed for intel tab)
+      const modelsRes = await fetch("https://openrouter.ai/api/v1/models");
+      const modelsData = modelsRes.ok ? await modelsRes.json() : { data: [] };
+      const models = modelsData.data || [];
+      const intelList = [];
+      for (const m of models) {
+        const aa = m.benchmarks && m.benchmarks.artificial_analysis;
+        if (aa && aa.intelligence_index != null) {
+          intelList.push({
+            name: m.id || m.name || 'unknown',
+            intel: aa.intelligence_index,
+            coding: aa.coding_index || 0,
+            agent: aa.agentic_index || 0
+          });
+        }
+      }
+      intelList.sort((a, b) => b.intel - a.intel);
+      const intelRanking = intelList.slice(0, 15).map((v, i) => ({
+        rank: i + 1,
+        name: v.name,
+        intel: v.intel.toFixed(1),
+        coding: v.coding.toFixed(1),
+        agent: v.agent.toFixed(1)
+      }));
+      
+      return { usage: usageRanking, intelligence: intelRanking };
+    } catch (e) {
+      console.log("[ORRankings] Firecrawl error:", e.message, "- falling back to API");
+    }
+  }
+  
+  // Fallback: use internal API
   try {
     const [usageRes, modelsRes] = await Promise.all([
       fetch("https://openrouter.ai/api/frontend/v1/rankings/models?view=week"),
@@ -2884,7 +2965,8 @@ async function fetchORRankings() {
         requests: v.count >= 1e9 ? (v.count / 1e9).toFixed(1) + 'B' :
                   v.count >= 1e6 ? (v.count / 1e6).toFixed(1) + 'M' :
                   v.count >= 1e3 ? (v.count / 1e3).toFixed(0) + 'K' :
-                  String(v.count)
+                  String(v.count),
+        change: ''
       };
     });
 
@@ -2930,7 +3012,14 @@ async function readORRankings(env) {
       }
     }
   } catch (_) {}
-  return await fetchORRankings();
+  const fresh = await fetchORRankings(env);
+  if (fresh) {
+    try {
+      await env.AI_NEWS_KV.put("or-rankings", JSON.stringify({ ...fresh, _updatedAt: new Date().toISOString() }));
+      console.log("[ORRankings] Saved fresh data to KV");
+    } catch (_) {}
+  }
+  return fresh;
 }
 __name(readORRankings, "readORRankings");
 function generatePage({ news = [], tools = [], videos = [], blogPosts = [], updatedAt, summarizedNews = [], summarizedAt = null, orRankings = null }) {
@@ -3141,6 +3230,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   /* Progress bar (usage) */
   html += ".rank-bar-wrap { width: 100%; max-width: 80px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 0.4rem; }";
   html += ".rank-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #0066ff, #7b2dff); transition: width 0.4s ease; }";
+  html += ".rank-change { font-size: 0.75rem; font-weight: 600; color: #22c55e; } .rank-change:has(↓) { color: #ef4444; }";
   /* Score bars (intel) */
   html += ".rank-score-wrap { display: flex; align-items: center; gap: 0.2rem; justify-content: flex-end; }";
   html += ".rank-score-bar { width: 28px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; flex-shrink: 0; }";
@@ -3194,14 +3284,15 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     html += '<button class="rank-tab" data-rank="intel" onclick="switchRankTab(\'intel\',this)">智力</button>';
     html += '</div>';
     // Usage tab
-    html += '<div class="rank-content active" id="rank-usage"><table class="rank-table"><tr><th>#</th><th>Model</th><th>Tokens</th><th>請求數</th></tr>';
+    html += '<div class="rank-content active" id="rank-usage"><table class="rank-table"><tr><th>#</th><th>Model</th><th>Tokens</th><th>Trend</th></tr>';
     orRankings.usage.forEach(function(r) {
       var cleanName = r.name.split('/').pop().replace(/-\d{8}$/, '');
       var provider = r.name.split('/')[0] || '';
       var medal = r.rank === 1 ? '<span class="rank-medal rank-medal-1">1</span>' : r.rank === 2 ? '<span class="rank-medal rank-medal-2">2</span>' : r.rank === 3 ? '<span class="rank-medal rank-medal-3">3</span>' : '<span class="rank-num">' + r.rank + '</span>';
-      var pct = maxUsage > 0 ? Math.round(r.total / maxUsage * 100) : 0;
-      var fmtT = r.total >= 1e9 ? (r.total/1e9).toFixed(1)+'B' : r.total >= 1e6 ? (r.total/1e6).toFixed(1)+'M' : r.total >= 1e3 ? (r.total/1e3).toFixed(1)+'K' : r.total;
-      html += '<tr><td>' + medal + '</td><td><span class="rank-provider">' + provider + '</span>' + cleanName + '</td><td><span style="display:inline-flex;align-items:center;gap:0.3rem">' + fmtT + '<span class="rank-bar-wrap"><span class="rank-bar-fill" style="width:' + pct + '%"></span></span></span></td><td>' + r.requests + '</td></tr>';
+      var fmtT = typeof r.total === 'string' ? r.total : (r.total >= 1e9 ? (r.total/1e9).toFixed(1)+'B' : r.total >= 1e6 ? (r.total/1e6).toFixed(1)+'M' : r.total >= 1e3 ? (r.total/1e3).toFixed(1)+'K' : r.total);
+      var changeHtml = r.change ? '<span class="rank-change">' + r.change + '</span>' : '';
+      var pct = typeof maxUsage === 'string' ? 50 : (r.total / maxUsage * 100);
+      html += '<tr><td>' + medal + '</td><td><span class="rank-provider">' + provider + '</span>' + cleanName + '</td><td><span style="display:inline-flex;align-items:center;gap:0.3rem">' + fmtT + '<span class="rank-bar-wrap"><span class="rank-bar-fill" style="width:' + Math.round(pct) + '%"></span></span></span></td><td>' + changeHtml + '</td></tr>';
     });
     html += '</table></div>';
     // Intel tab
