@@ -2655,7 +2655,7 @@ var worker_default = {
       }
       if (url.pathname === "/trigger-rankings") {
         try {
-          const rankings = await fetchORRankings();
+          const rankings = await fetchORRankings(env);
           if (rankings && rankings.usage && rankings.usage.length > 0) {
             rankings._updatedAt = new Date().toISOString();
             await env.AI_NEWS_KV.put("or-rankings", JSON.stringify(rankings));
@@ -2901,7 +2901,7 @@ async function fetchORRankings(env) {
       
       // Parse Top Apps from markdown
       const appsRanking = [];
-      const appsSection = md.match(/\[Top Apps\]\([^)]+\)([\s\S]*?)(?=\[Languages\]|\[Programming\]|##|$)/);
+      const appsSection = md.match(/\[[^\]]*Top Apps[^\]]*\]\([^)]+\)([\s\S]*?)(?=\[Languages\]|\[Programming\]|##|$)/);
       if (appsSection) {
         const appLines = appsSection[1].split('\n');
         for (let i = 0; i < appLines.length && appsRanking.length < 10; i++) {
