@@ -66,7 +66,7 @@ async function batchSummarizeWithWorkersAI(articles, env) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 60000);
     
-    let userContent = `以下有多篇英文 AI 新聞，請為每篇提供繁體中文標題同摘要。每篇都必須輸出繁體中文標題，唔准留英文！\n\n`;
+    let userContent = `以下有多篇英文 AI 新聞，請為每篇提供繁體中文標題同摘要。標題同摘要都必須係繁體中文，绝对唔可以用英文！\n\n`;
     articles.forEach((a, i) => {
       const desc = (a.description || '').substring(0, 500);
       userContent += `第${i+1}篇\n標題：${a.title}\n內容：${desc}\n\n`;
@@ -74,10 +74,8 @@ async function batchSummarizeWithWorkersAI(articles, env) {
     userContent += `請嚴格依照以下 JSON 陣列格式輸出（跟上面順序），唔好包含任何 JSON 以外嘅文字：\n[\n  {"headline": "中文標題", "summary": "2-4句摘要"},\n  ...\n]`;
     
     const systemPrompt = `你係專業嘅科技新聞編輯，專精英譯中。你嘅任務係將英文新聞標題同內容轉化為高品質嘅繁體中文。
-
-【重要】每篇都必須輸出繁體中文 headline，絕對唔可以用英文！
-
-【標題翻譯原則】
+\n【重要】每篇都必須輸出繁體中文 headline 同 summary，絕對唔可以用英文！如果出英文就係違規！
+\n【標題翻譯原則】
 - 唔好直譯！理解原文意思後用自然嘅中文重新表達
 - 保留英文名稱（公司名、產品名、技術名詞）
 - 標題要簡潔有力，15-30 字內
@@ -446,7 +444,7 @@ const CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 async function getCachedArticle(url, env) {
   try {
-    const key = `article:v2:${md5(url)}`;
+    const key = `article:v3:${md5(url)}`;
     const cached = await env.AI_NEWS_KV.get(key);
     if (cached) {
       const data = JSON.parse(cached);
@@ -472,7 +470,7 @@ async function setCachedArticle(url, result, env) {
       console.log(`[Cache] SKIP article (non-Chinese): ${url.substring(0, 50)}...`);
       return;
     }
-    const key = `article:v2:${md5(url)}`;
+    const key = `article:v3:${md5(url)}`;
     const data = { 
       translatedTitle: result.translatedTitle, 
       summary: result.summary,
