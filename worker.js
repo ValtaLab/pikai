@@ -2901,7 +2901,7 @@ async function fetchORRankings(env) {
       
       // Parse Top Apps from markdown
       const appsRanking = [];
-      const appsSection = md.match(/\[[^\]]*Top Apps[^\]]*\]\([^)]+\)([\s\S]*?)(?=\[Languages\]|\[Programming\]|##|$)/);
+      const appsSection = md.match(/\[[^\]]*Top Apps[^\]]*\]\([^)]+\)([\s\S]*?)(?=\[[^\]]*Languages[^\]]*\]|\[[^\]]*Programming[^\]]*\]|##|$)/);
       if (appsSection) {
         const appLines = appsSection[1].split('\n');
         for (let i = 0; i < appLines.length && appsRanking.length < 10; i++) {
