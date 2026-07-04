@@ -2865,12 +2865,15 @@ async function fetchORRankings(env) {
     const usageMap = {};
     for (const item of items) {
       const slug = item.model_permaslug || 'unknown';
-      if (!usageMap[slug]) usageMap[slug] = { prompt: 0, completion: 0, count: 0, change: null };
+      if (!usageMap[slug]) usageMap[slug] = { prompt: 0, completion: 0, count: 0, change: null, bestTokenCount: 0 };
       usageMap[slug].prompt += item.total_prompt_tokens || 0;
       usageMap[slug].completion += item.total_completion_tokens || 0;
       usageMap[slug].count += item.count || 0;
-      if (usageMap[slug].change === null && item.change != null) {
+      // Track change from the entry with most tokens (handles duplicate slugs)
+      const itemTokens = (item.total_prompt_tokens || 0) + (item.total_completion_tokens || 0);
+      if (item.change != null && itemTokens > usageMap[slug].bestTokenCount) {
         usageMap[slug].change = item.change;
+        usageMap[slug].bestTokenCount = itemTokens;
       }
     }
     const usageSorted = Object.entries(usageMap)
