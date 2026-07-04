@@ -2905,6 +2905,36 @@ async function fetchORRankings(env) {
         }
       }
       
+      // Augment Firecrawl data with API change data (API has accurate +/- values)
+      try {
+        const apiResp = await fetch("https://openrouter.ai/api/frontend/v1/rankings/models?view=week");
+        if (apiResp.ok) {
+          const apiData = await apiResp.json();
+          const apiItems = apiData.data || [];
+          // Build a slug→change map from API (use last non-null change per slug)
+          const changeMap = {};
+          for (const item of apiItems) {
+            const slug = item.model_permaslug || '';
+            if (slug && item.change != null) {
+              changeMap[slug] = item.change;
+            }
+          }
+          // Merge change data into usageRanking by matching slug in name
+          for (const r of usageRanking) {
+            const slug = r.name.toLowerCase().replace(/[^a-z0-9-]/g, '');
+            for (const [apiSlug, apiChange] of Object.entries(changeMap)) {
+              if (apiSlug.includes(slug) || slug.includes(apiSlug.replace(/^[^/]+\//, ''))) {
+                const pct = Math.round(apiChange * 100);
+                if (pct > 0) r.change = '↑' + pct + '%';
+                else if (pct < 0) r.change = '↓' + Math.abs(pct) + '%';
+                else r.change = '0%';
+                break;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+      
       // Parse Top Apps from markdown
       const appsRanking = [];
       const appsSection = md.match(/\[[^\]]*Top Apps[^\]]*\]\([^)]+\)([\s\S]*?)(?=\[[^\]]*Languages[^\]]*\]|\[[^\]]*Programming[^\]]*\]|##|$)/);
@@ -2978,20 +3008,32 @@ async function fetchORRankings(env) {
     const items = usageData.data || [];
     const models = modelsData.data || [];
 
-    // Aggregate token usage by model
+    // Aggregate token usage by model + track change
     const usageMap = {};
     for (const item of items) {
       const slug = item.model_permaslug || 'unknown';
-      if (!usageMap[slug]) usageMap[slug] = { prompt: 0, completion: 0, count: 0 };
+      if (!usageMap[slug]) usageMap[slug] = { prompt: 0, completion: 0, count: 0, change: null };
       usageMap[slug].prompt += item.total_prompt_tokens || 0;
       usageMap[slug].completion += item.total_completion_tokens || 0;
       usageMap[slug].count += item.count || 0;
+      // Use first non-null change found for this model
+      if (usageMap[slug].change === null && item.change != null) {
+        usageMap[slug].change = item.change;
+      }
     }
     const usageSorted = Object.entries(usageMap)
       .map(([k, v]) => ({ ...v, slug: k }))
       .sort((a, b) => (b.prompt + b.completion) - (a.prompt + a.completion));
     const usageRanking = usageSorted.slice(0, 15).map((v, i) => {
       const total = v.prompt + v.completion;
+      // Convert change factor to percentage with arrow
+      let change = '';
+      if (v.change != null) {
+        const pct = Math.round(v.change * 100);
+        if (pct > 0) change = '↑' + pct + '%';
+        else if (pct < 0) change = '↓' + Math.abs(pct) + '%';
+        else change = '0%';
+      }
       return {
         rank: i + 1,
         name: v.slug,
@@ -3002,7 +3044,7 @@ async function fetchORRankings(env) {
                   v.count >= 1e6 ? (v.count / 1e6).toFixed(1) + 'M' :
                   v.count >= 1e3 ? (v.count / 1e3).toFixed(0) + 'K' :
                   String(v.count),
-        change: ''
+        change
       };
     });
 
