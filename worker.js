@@ -3152,17 +3152,14 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".ko-score { width: 1.5rem; text-align: center; font-weight: 600; color: #999; flex-shrink: 0; }";
   html += ".ko-score.ko-scored { font-size: 0.9rem; color: #0f172a; }";
   html += ".ko-winner .ko-score { color: #0066ff; }";
-  /* Custom SVG icons for ranking card */
+  /* Custom SVG icons for ranking card (CSS ::before) */
   html += "<style>";
-  html += ".rank-icon { display: inline-flex !important; width: 1em !important; height: 1em !important; vertical-align: -0.125em; flex-shrink: 0; min-width: 1em; min-height: 1em; }";
-  html += ".rank-icon.trophy { background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230066ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3Cpath d='M17 15V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v11'/%3E%3Cpath d='M6 9v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9'/%3E%3C/svg%3E\") !important; background-size: contain; background-repeat: no-repeat; background-position: center; }";
-  html += ".rank-icon.chart { background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230066ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E\") !important; background-size: contain; background-repeat: no-repeat; background-position: center; }";
-  html += ".rank-icon.brain { background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237b2dff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5a3 3 0 1 0-3 3c0 1.5-1.5 3-3 4.5v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9c0-1.5-1.5-3-3-4.5a3 3 0 0 0-3-3z'/%3E%3Cpath d='M9 8a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2H9z'/%3E%3C/svg%3E\") !important; background-size: contain; background-repeat: no-repeat; background-position: center; }";
-  html += ".rank-icon.database { background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='12' cy='5' rx='9' ry='3'/%3E%3Cpath d='M3 5v14c0 1.66 5.33 3 9 3s9-1.34 9-3V5'/%3E%3Cellipse cx='12' cy='19' rx='9' ry='3'/%3E%3C/svg%3E\") !important; background-size: contain; background-repeat: no-repeat; background-position: center; }";
-  html += ".rank-intel .rank-icon.database { width: 1em !important; height: 1em !important; min-width: 1em; min-height: 1em; }";
+  html += ".rank-header::before { content: ''; width: 1.3rem; height: 1.3rem; flex-shrink: 0; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230066ff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3Cpath d='M17 15V4a2 2 0 0 0-2-2H9a2 2 0 0 0-2 2v11'/%3E%3Cpath d='M6 9v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9'/%3E%3C/svg%3E\"); background-size: contain; background-repeat: no-repeat; background-position: center; }";
+  html += ".rank-tab[data-rank=\"usage\"]::before { content: ''; width: 0.9rem; height: 0.9rem; display: inline-block; vertical-align: -0.15em; margin-right: 0.3rem; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E\"); background-size: contain; background-repeat: no-repeat; background-position: center; }";
+  html += ".rank-tab[data-rank=\"intel\"]::before { content: ''; width: 0.9rem; height: 0.9rem; display: inline-block; vertical-align: -0.15em; margin-right: 0.3rem; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5a3 3 0 1 0-3 3c0 1.5-1.5 3-3 4.5v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9c0-1.5-1.5-3-3-4.5a3 3 0 0 0-3-3z'/%3E%3Cpath d='M9 8a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2H9z'/%3E%3C/svg%3E\"); background-size: contain; background-repeat: no-repeat; background-position: center; }";
+  html += ".rank-tab.active::before { opacity: 1; }";
   html += ".rank-section { background: #fff; border-radius: 16px; margin-bottom: 1.2rem; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid #e8e8f0; max-width: 1200px; margin-left: auto; margin-right: auto; }";
   html += ".rank-header { padding: 1rem 1.2rem 0.8rem; font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 50%, #faf5ff 100%); border-bottom: 1px solid #eee; }";
-  html += ".rank-header-icon { font-size: 1.3rem; }";
   html += ".rank-header-sub { font-size: 0.65rem; font-weight: 500; color: #999; margin-left: auto; }";
   html += ".rank-tabs { display: flex; gap: 0.4rem; padding: 0.6rem 1.2rem; border-bottom: 1px solid #f0f0f5; flex-wrap: wrap; }";
   html += ".rank-tab { padding: 0.35rem 0.9rem; font-size: 0.78rem; font-weight: 600; border-radius: 20px; cursor: pointer; color: #888; background: #f0f2f5; transition: all 0.2s; border: none; white-space: nowrap; }";
@@ -3200,7 +3197,8 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".rank-score-fill.coding { background: linear-gradient(90deg, #0066ff, #3b82f6); }";
   html += ".rank-score-fill.agent { background: linear-gradient(90deg, #f59e0b, #f97316); }";
   html += ".rank-score-val { font-size: 0.68rem; font-weight: 600; color: #666; min-width: 1.6rem; text-align: right; }";
-  html += ".rank-intel { padding: 0.6rem 1.2rem; font-size: 0.65rem; color: #aaa; border-top: 1px solid #f0f0f0; display: flex; align-items: center; gap: 0.3rem; }";
+  html += ".rank-intel { position: relative; padding: 0.6rem 1.2rem 0.6rem 1.8rem; font-size: 0.65rem; color: #aaa; border-top: 1px solid #f0f0f0; }";
+  html += ".rank-intel::before { content: ''; position: absolute; left: 1.2rem; top: 50%; transform: translateY(-50%); width: 1em; height: 1em; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='12' cy='5' rx='9' ry='3'/%3E%3Cpath d='M3 5v14c0 1.66 5.33 3 9 3s9-1.34 9-3V5'/%3E%3Cellipse cx='12' cy='19' rx='9' ry='3'/%3E%3C/svg%3E\") !important; background-size: contain; background-repeat: no-repeat; background-position: center; }";
   html += "@media (max-width: 700px) { .card-grid { grid-template-columns: 1fr; margin: 0 0.5rem; padding: 0; } .summarized-grid { margin: 0 0.5rem; padding: 0; } .blog-list { margin: 0 0.5rem; padding: 0; } .knowledge-container { padding: 0 0.5rem; } .wc-section, .rank-section { margin-left: 0.5rem; margin-right: 0.5rem; } .tabs { border-radius: 30px; overflow-x: auto; -webkit-overflow-scrolling: touch; justify-content: flex-start; padding-left: 0.5rem; } .tab { padding: 0.5rem 0.6rem; font-size: 0.8rem; gap: 0.3rem; min-width: max-content; flex: none; white-space: nowrap; line-height: 1.2; } .tab-icon { font-size: 1.1rem; } .tab-count { font-size: 0.65rem; padding: 0.1rem 0.3rem; } h1 { font-size: 1.8rem; } .rankings-card-header { font-size: 0.9rem; padding: 0.7rem 0.8rem; } .rankings-table td { padding: 0.4rem 0.4rem; font-size: 0.75rem; } .rankings-table .provider-cell { font-size: 0.68rem; } .knowledge-card { margin-bottom: 1rem; } .logo-svg { width: 176px; } .rank-table td { padding: 0.35rem 0.35rem; font-size: 0.7rem; } .rank-table th { padding: 0.35rem 0.35rem; font-size: 0.6rem; } .rank-table td:nth-child(2) { font-size: 0.68rem; max-width: 30vw; } .rank-provider { font-size: 0.5rem; } .rank-score-bar { width: 18px; } .rank-score-val { font-size: 0.6rem; min-width: 1.2rem; } .rank-bar-wrap { max-width: 50px; } .rank-medal { width: 1.2rem; height: 1.2rem; font-size: 0.6rem; } }";
   html += "</style>";
   html += "</head>";
@@ -3297,10 +3295,10 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       });
     }
     html += '<div class="rank-section">';
-    html += '<div class="rank-header"><span class="rank-header-icon"><i class="rank-icon trophy"></i></span> Model 排行榜<span class="rank-header-sub">OpenRouter · 本週</span></div>';
+    html += '<div class="rank-header">Model 排行榜<span class="rank-header-sub">OpenRouter · 本週</span></div>';
     html += '<div class="rank-tabs">';
-    html += '<button class="rank-tab active" data-rank="usage" onclick="switchRankTab(\'usage\',this)"><i class="rank-icon chart"></i> 使用量</button>';
-    html += '<button class="rank-tab" data-rank="intel" onclick="switchRankTab(\'intel\',this)"><i class="rank-icon brain"></i> 智力</button>';
+    html += '<button class="rank-tab active" data-rank="usage" onclick="switchRankTab(\'usage\',this)">使用量</button>';
+    html += '<button class="rank-tab" data-rank="intel" onclick="switchRankTab(\'intel\',this)">智力</button>';
     html += '</div>';
     // Usage tab
     html += '<div class="rank-content active" id="rank-usage"><table class="rank-table"><tr><th>#</th><th>Model</th><th>Tokens</th><th>請求數</th></tr>';
@@ -3331,7 +3329,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       });
     }
     html += '</table></div>';
-    html += '<div class="rank-intel"><i class="rank-icon database"></i> 數據來源：OpenRouter API · 每日更新</div>';
+    html += '<div class="rank-intel">數據來源：OpenRouter API · 每日更新</div>';
     html += '</div>';
   }
   // Show all news as AI summarized cards
