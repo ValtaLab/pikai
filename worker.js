@@ -2879,12 +2879,12 @@ async function fetchORRankings(env) {
           if (!rankMatch) continue;
           const rank = parseInt(rankMatch[1]);
           // Name: skip image lines (! prefix) and blank lines to find the model link
-          let name = '', total = '', change = '';
+          let name = '', slug = '', total = '', change = '';
           for (let j = 1; j <= 8 && i + j < lbLines.length; j++) {
             const line = lbLines[i + j];
             if (line.startsWith('!')) continue; // skip image lines
-            const nm = line.match(/\[([^\]]+)\]\(https?:\/\/openrouter\.ai\/(?!rankings)[^)]+\)/);
-            if (nm && !line.startsWith('!')) { name = nm[1]; break; }
+            const nm = line.match(/\[([^\]]+)\]\(https:\/\/openrouter\.ai\/([^)\s]+)\)/);
+            if (nm && !line.startsWith('!')) { name = nm[1]; slug = nm[2]; break; }
           }
           // Token count: look for "X.XX T/B tokens" pattern
           for (let j = 1; j <= 10 && i + j < lbLines.length; j++) {
@@ -2901,7 +2901,7 @@ async function fetchORRankings(env) {
               break;
             }
           }
-          if (name && total) usageRanking.push({ rank, name, total, change, requests: '' });
+          if (name && total) usageRanking.push({ rank, name, slug, total, change, requests: '' });
         }
       }
       
@@ -2919,17 +2919,15 @@ async function fetchORRankings(env) {
               changeMap[slug] = item.change;
             }
           }
-          // Merge change data into usageRanking by matching slug in name
+          // Merge change data into usageRanking using direct URL slug matching
           for (const r of usageRanking) {
-            const slug = r.name.toLowerCase().replace(/[^a-z0-9-]/g, '');
-            for (const [apiSlug, apiChange] of Object.entries(changeMap)) {
-              if (apiSlug.includes(slug) || slug.includes(apiSlug.replace(/^[^/]+\//, ''))) {
-                const pct = Math.round(apiChange * 100);
-                if (pct > 0) r.change = '↑' + pct + '%';
-                else if (pct < 0) r.change = '↓' + Math.abs(pct) + '%';
-                else r.change = '0%';
-                break;
-              }
+            if (!r.slug) continue;
+            const apiChange = changeMap[r.slug];
+            if (apiChange != null) {
+              const pct = Math.round(apiChange * 100);
+              if (pct > 0) r.change = '↑' + pct + '%';
+              else if (pct < 0) r.change = '↓' + Math.abs(pct) + '%';
+              else r.change = '0%';
             }
           }
         }
