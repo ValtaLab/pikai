@@ -2881,21 +2881,23 @@ async function fetchORRankings(env) {
           const rankMatch = lbLines[i].match(/^(\d+)\.\s*$/);
           if (!rankMatch) continue;
           const rank = parseInt(rankMatch[1]);
-          // Name: skip blank lines and image lines to find the name link
+          // Name: skip image lines (! prefix) and blank lines to find the model link
           let name = '', total = '', change = '';
-          for (let j = 1; j <= 6 && i + j < lbLines.length; j++) {
-            const nm = lbLines[i + j].match(/\[([^\]]+)\]\(https?:\/\/openrouter\.ai\/(?!rankings)[^)]+\)/);
-            if (nm) { name = nm[1]; break; }
+          for (let j = 1; j <= 8 && i + j < lbLines.length; j++) {
+            const line = lbLines[i + j];
+            if (line.startsWith('!')) continue; // skip image lines
+            const nm = line.match(/\[([^\]]+)\]\(https?:\/\/openrouter\.ai\/(?!rankings)[^)]+\)/);
+            if (nm && !line.startsWith('!')) { name = nm[1]; break; }
           }
           // Token count: look for "X.XX T/B tokens" pattern
-          for (let j = 1; j <= 8 && i + j < lbLines.length; j++) {
+          for (let j = 1; j <= 10 && i + j < lbLines.length; j++) {
             const tm = lbLines[i + j].match(/^([\d.]+)([TBM])\s*tokens?$/i);
             if (tm) { total = tm[1] + tm[2]; break; }
           }
-          // Change: look for "+/-X%" pattern
-          for (let j = 1; j <= 8 && i + j < lbLines.length; j++) {
-            const cm = lbLines[i + j].match(/^(-?[\d.]+)%/);
-            if (cm && !lbLines[i + j].includes('/')) {
+          // Change: look for "+/-X%" pattern (further down after "by [provider]" line)
+          for (let j = 1; j <= 12 && i + j < lbLines.length; j++) {
+            const cm = lbLines[i + j].match(/^(-?[\d.]+)%$/);
+            if (cm) {
               change = cm[1] + '%';
               if (change.startsWith('-')) change = '↓' + change.slice(1);
               else change = '↑' + change;
@@ -2915,19 +2917,19 @@ async function fetchORRankings(env) {
           const rankMatch = appLines[i].match(/^(\d+)\.\s*$/);
           if (!rankMatch) continue;
           const rank = parseInt(rankMatch[1]);
-          // Name line: skip potential image line (2 lines after rank)
-          const nameLine = appLines[i + 2] || '';
-          const nameMatch = nameLine.match(/\[([^\]]+)\]/);
-          if (!nameMatch) continue;
-          const name = nameMatch[1];
-          // Token line: search lines after name
-          let total = '';
-          for (let j = 2; j <= 5; j++) {
+          // Name: find app link matching openrouter.ai/apps/ pattern, skip description lines
+          let name = '', total = '';
+          for (let j = 1; j <= 5 && i + j < appLines.length; j++) {
+            const nm = appLines[i + j].match(/\[([^\]]+)\]\(https?:\/\/openrouter\.ai\/apps\/[^)]+\)/);
+            if (nm) { name = nm[1]; break; }
+          }
+          // Token line: search for "X.XX B/tokens" pattern
+          for (let j = 2; j <= 6; j++) {
             const tl = appLines[i + j] || '';
             const tm = tl.match(/^([\d.]+)([TBM])\s*[Tt]okens?$/);
             if (tm) { total = tm[1] + tm[2]; break; }
           }
-          appsRanking.push({ rank, name, total });
+          if (name && total) appsRanking.push({ rank, name, total });
         }
       }
       
@@ -3327,8 +3329,9 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     // Usage tab
     html += '<div class="rank-content active" id="rank-usage"><table class="rank-table"><tr><th>#</th><th>Model</th><th>Tokens</th><th>Trend</th></tr>';
     orRankings.usage.forEach(function(r) {
-      var cleanName = r.name.split('/').pop().replace(/-\d{8}$/, '');
-      var provider = r.name.split('/')[0] || '';
+      var hasSlash = r.name.indexOf('/') >= 0;
+      var cleanName = hasSlash ? r.name.split('/').pop().replace(/-\d{8}$/, '') : r.name;
+      var provider = hasSlash ? r.name.split('/')[0] || '' : '';
       var medal = r.rank === 1 ? '<span class="rank-medal rank-medal-1">1</span>' : r.rank === 2 ? '<span class="rank-medal rank-medal-2">2</span>' : r.rank === 3 ? '<span class="rank-medal rank-medal-3">3</span>' : '<span class="rank-num">' + r.rank + '</span>';
       var fmtT = typeof r.total === 'string' ? r.total : (r.total >= 1e9 ? (r.total/1e9).toFixed(1)+'B' : r.total >= 1e6 ? (r.total/1e6).toFixed(1)+'M' : r.total >= 1e3 ? (r.total/1e3).toFixed(1)+'K' : r.total);
       var changeHtml = r.change ? '<span class="rank-change">' + r.change + '</span>' : '';
