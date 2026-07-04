@@ -2154,7 +2154,7 @@ async function fetchNewsData(env) {
     
     // CRITICAL FIX: Cap articles to stay under Cloudflare 50 subrequest limit
     // Budget: ~29 RSS + up to 5 OG fetches + 10 batch AI (30/3) + tools
-    const MAX_ARTICLES = 30;
+    const MAX_ARTICLES = 50;
     const toProcess = deduped.slice(0, MAX_ARTICLES);
     console.log(`[fetchNewsData] Processing top ${toProcess.length}/${deduped.length} articles (subrequest budget cap)`);
     
