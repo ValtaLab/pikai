@@ -100,7 +100,7 @@ async function batchSummarizeWithWorkersAI(articles, env) {
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent }
       ],
-      max_tokens: 8000,
+      max_tokens: 4000,
       temperature: 0.3
     });
     clearTimeout(timeoutId);
@@ -2192,8 +2192,8 @@ async function fetchNewsData(env) {
     const summarizeCount = Math.min(withImages.length, MAX_SUMMARIZE);
     console.log(`[fetchNewsData] Summarizing ${summarizeCount} articles with Workers AI (capped at ${MAX_SUMMARIZE} for subrequest budget)...`);
     const summarizedNews = [];
-    const BATCH_SIZE = 5;
-    const BATCH_DELAY = 3000; // 3 seconds between batches for subrequest safety
+    const BATCH_SIZE = 3;
+    const BATCH_DELAY = 2000; // 2 seconds between batches for subrequest safety
     
     for (let batchStart = 0; batchStart < summarizeCount; batchStart += BATCH_SIZE) {
       const batchEnd = Math.min(batchStart + BATCH_SIZE, summarizeCount);
@@ -2267,7 +2267,7 @@ async function fetchNewsData(env) {
               if (orResult.success) {
                 const text = orResult.text;
                 const titleMatch = text.match(/標題[：:]\s*(.+?)(?:\n|$)/);
-                const summaryMatch = text.match(/總結[：:]\\s*([\\s\\S]+)/);
+                const summaryMatch = text.match(/總結[：:]\s*([\s\S]+)/);
                 const summary = summaryMatch ? summaryMatch[1].trim() : text.trim();
                 let translatedTitle = titleMatch ? titleMatch[1].trim() : '';
                 const badPatterns = [
