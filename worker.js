@@ -2420,6 +2420,19 @@ var worker_default = {
     } else {
       console.log(`[Cron] SKIPPED KV write: only ${data.news?.length || 0} articles (min 15 required)`);
     }
+    // Also refresh rankings on the midnight cron
+    if (cronExpr === '0 0 * * *') {
+      try {
+        const rankings = await fetchORRankings(env);
+        if (rankings && rankings.usage && rankings.usage.length > 0) {
+          rankings._updatedAt = new Date().toISOString();
+          await env.AI_NEWS_KV.put("or-rankings", JSON.stringify(rankings));
+          console.log(`[Cron] Rankings updated: ${rankings.usage.length} models`);
+        }
+      } catch (e) {
+        console.log("[Cron] Rankings refresh error:", e.message);
+      }
+    }
   },
   async fetch(request, env) {
     try {
