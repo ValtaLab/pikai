@@ -95,7 +95,7 @@ async function batchSummarizeWithWorkersAI(articles, env) {
 【輸出格式】
 嚴格輸出 JSON 陣列，順序同上，每人一條。`;
 
-    const response = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent }
@@ -204,7 +204,7 @@ async function summarizeWithWorkersAI(title, description, env) {
   "confidence": 8
 }`;
 
-    const response = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `標題：${title}\n內容：${description}` }
@@ -373,7 +373,7 @@ async function summarizeToolWithWorkersAI(name, description, env) {
   "confidence": 8
 }`;
 
-    const response = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `工具名稱：${name}\n工具描述：${description}` }
@@ -871,7 +871,7 @@ async function translateTitleWithWorkersAI(title, env) {
 英文：I paid for Claude, ChatGPT, and Perplexity for a month but only one of them deserves my $20
 中文：實測比較：Claude、ChatGPT、Perplexity 邊個值得付費`;
 
-    const response = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `標題：${title}` }
@@ -1088,7 +1088,7 @@ async function translateTools(tools, env) {
       const prompt = `你係一個科技編輯。請用繁體中文（香港用語）為以下 AI 工具/專案撰寫一句中文簡介（15-30字）。保持自然，唔好直譯。\n\n工具列表：\n${uncached.map((u, idx) => `${idx + 1}. 名稱：${u.tool.name}\n   描述：${(u.tool.description || u.tool.name).substring(0, 200)}`).join('\n')}\n\n請以 JSON 陣列格式回應，每個項目包含 "index" 同 "descZh" 欄位：\n[{"index": 0, "descZh": "..."}, {"index": 1, "descZh": "..."}]`;
       
       try {
-        const aiResult = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+        const aiResult = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
           messages: [
             { role: 'system', content: '你係一個科技編輯，擅長用繁體中文簡介 AI 工具。只輸出 JSON。' },
             { role: 'user', content: prompt }
@@ -2152,8 +2152,8 @@ async function fetchNewsData(env) {
     
     // CRITICAL FIX: Cap articles to stay under Cloudflare 50 subrequest limit
     // Budget: ~31 RSS + up to 5 OG fetches + 10 batch AI (50/5) + tools = ~49
-    const MAX_ARTICLES = 50;
-    const MAX_SUMMARIZE = 50;
+    const MAX_ARTICLES = 25;
+    const MAX_SUMMARIZE = 25;
     const toProcess = deduped.slice(0, MAX_ARTICLES);
     console.log(`[fetchNewsData] Processing top ${toProcess.length}/${deduped.length} articles (display max ${MAX_ARTICLES}, summarize max ${MAX_SUMMARIZE})`);
     
@@ -2508,7 +2508,7 @@ var worker_default = {
           if (typeof env.AI.run !== 'function') {
             return new Response(JSON.stringify({ error: "env.AI.run is not a function", type: typeof env.AI.run }), { status: 500, headers: { "Content-Type": "application/json" } });
           }
-          const result = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+          const result = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
             messages: [{ role: 'user', content: 'Say hello in Chinese' }],
             max_tokens: 50
           });
@@ -2551,7 +2551,7 @@ var worker_default = {
           }
           // Step 5: Call Workers AI to summarize in Traditional Chinese
           const prompt = "你係專業嘅AI助手。請用繁體中文總結以下YouTube影片嘅字幕，格式如下：\n\n【重點整理】\n• （第一個重點）\n• （第二個重點）\n• （第三個重點）\n• （如此類推）\n\n要求：\n- 每個重點用 • 開頭，一句話講完\n- 保持關鍵技術細節\n- 總字數約300-800字，視乎內容豐富程度\n- 最少列出3個重點，最多8個\n\n字幕：" + transcriptText;
-          const aiResult = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+          const aiResult = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
             messages: [{ role: 'user', content: prompt }],
             max_tokens: 1200
           });
@@ -2603,7 +2603,7 @@ var worker_default = {
           }
           // Step 2: Call Workers AI to summarize in Traditional Chinese
           const prompt = "你係專業嘅AI助手。請用繁體中文詳細總結以下新聞文章嘅重點，格式如下：\n\n【詳細總結】\n• （第一個重點）\n• （第二個重點）\n• （第三個重點）\n• （如此類推）\n\n要求：\n- 每個重點用 • 開頭，每句完整表達一個要點\n- 保持關鍵技術細節和數據\n- 總字數約300-800字，視乎內容豐富程度\n- 最少列出3個重點，最多10個\n- 必須用繁體中文\n\n文章標題：" + articleTitle + "\n\n文章內容：" + articleText;
-          const aiResult = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+          const aiResult = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
             messages: [{ role: 'user', content: prompt }],
             max_tokens: 1500
           });
