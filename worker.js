@@ -2891,7 +2891,7 @@ async function fetchORRankings(env) {
       .sort((a, b) => (b.prompt + b.completion) - (a.prompt + a.completion));
     const usageRanking = usageSorted.slice(0, 15).map((v, i) => {
       const total = v.prompt + v.completion;
-      let change = '';
+      let change = '—';
       if (v.change != null) {
         const pct = Math.round(v.change * 100);
         if (pct > 0) change = '↑' + pct + '%';
@@ -3172,7 +3172,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   /* Progress bar (usage) */
   html += ".rank-bar-wrap { width: 100%; max-width: 80px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 0.4rem; }";
   html += ".rank-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #0066ff, #7b2dff); transition: width 0.4s ease; }";
-  html += ".rank-change { font-size: 0.75rem; font-weight: 600; color: #22c55e; } .rank-change.negative { color: #ef4444; }";
+  html += ".rank-change { font-size: 0.75rem; font-weight: 600; color: #22c55e; } .rank-change.negative { color: #ef4444; } .rank-change.dash { color: #888; }";
   /* Score bars (intel) */
   html += ".rank-score-wrap { display: flex; align-items: center; gap: 0.2rem; justify-content: flex-end; }";
   html += ".rank-score-bar { width: 28px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; flex-shrink: 0; }";
@@ -3235,7 +3235,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       var provider = hasSlash ? r.name.split('/')[0] || '' : '';
       var medal = r.rank === 1 ? '<span class="rank-medal rank-medal-1">1</span>' : r.rank === 2 ? '<span class="rank-medal rank-medal-2">2</span>' : r.rank === 3 ? '<span class="rank-medal rank-medal-3">3</span>' : '<span class="rank-num">' + r.rank + '</span>';
       var fmtT = typeof r.total === 'string' ? r.total : (r.total >= 1e9 ? (r.total/1e9).toFixed(1)+'B' : r.total >= 1e6 ? (r.total/1e6).toFixed(1)+'M' : r.total >= 1e3 ? (r.total/1e3).toFixed(1)+'K' : r.total);
-      var changeHtml = r.change ? '<span class="rank-change' + (r.change.indexOf('↓') >= 0 ? ' negative' : '') + '">' + r.change + '</span>' : '';
+      var changeHtml = r.change ? '<span class="rank-change' + (r.change.indexOf('↓') >= 0 ? ' negative' : r.change === '—' ? ' dash' : '') + '">' + r.change + '</span>' : '';
       var pct = typeof maxUsage === 'string' ? 50 : (r.total / maxUsage * 100);
       if (isNaN(pct)) pct = 50;
       html += '<tr><td>' + medal + '</td><td>' + (provider ? '<span class="rank-provider">' + provider + '</span>' : '') + displayName + '</td><td><span style="display:inline-flex;align-items:center;gap:0.3rem">' + fmtT + '<span class="rank-bar-wrap"><span class="rank-bar-fill" style="width:' + Math.round(pct) + '%"></span></span></span></td><td>' + changeHtml + '</td></tr>';
