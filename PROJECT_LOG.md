@@ -8,9 +8,20 @@ last_update_by: HermesBPi
 
 # AI News Digest 項目進展日誌
 
-## 🚀 最新狀態 (2026-06-30)
-**版本:** `88449db` | **部署時間:** 11:53 HKT | **狀態:** 運行中  
-**代碼大小:** ~162 KiB
+## 🚀 最新狀態 (2026-07-10)
+**版本:** `38790aa` | **部署時間:** 10:18 HKT | **狀態:** 運行中
+**代碼大小:** ~260 KiB
+
+### 已修復
+- **fix: field name mismatch — `item.description` 改為 `item.summary`** (Commit 38790aa)
+- **根因**: `parseRSS()` 將 RSS description 存入 `item.summary`（line 1212），但 `batchSummarizeWithWorkersAI()` 同 OpenRouter fallback prompt 讀 `item.description`（一直 undefined）。導致 9/25 新聞卡片既 AI 模型收到空嘅 content，只能靠標題估中文翻譯 → 失敗 → OpenRouter 出英文摘要 → final pass 翻譯又失敗 → 卡片顯示英文標題
+- **所有文章嘅 description 都係 undefined** (唔只 9 篇)，但 16 篇有中文翻譯係因為之前嘅 cache 有效
+- **Fix**: 
+  1. `batchSummarizeWithWorkersAI` (line 71): `a.description` → `a.description || a.summary`
+  2. OpenRouter fallback prompt (line 2254): `item.description` → `item.summary`
+  3. Logging (line 2205): 改為顯示 `hasDesc: ${!!item.summary}`
+- **驗證**: `trigger-news` 後 KV 檢查 — 25/25 文章有繁體中文標題 ✅，browser console 0 JS errors ✅
+- **補充修復**: 所有其他 `item.description` 嘅 fallback path（line 2292, 2303）已經有 `|| item.summary` fallback，無需改動
 
 ### 核心功能
 - [x] **5-tab 佈局**: 今日必讀 / AI 影片 / 實用工具 / AI 知識庫 / 應用實例
