@@ -3074,6 +3074,8 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".news-ai-btn:disabled { opacity: 0.5; cursor: wait; }";
   html += ".news-ai-summary { margin-top: 8px; padding: 10px 12px; background: #f0f4ff; border-radius: 10px; font-size: 0.88rem; color: #333; line-height: 1.6; display: none; text-align: left; }";
   html += ".news-ai-summary.visible { display: block; }";
+  html += ".news-ai-body p { margin: 0 0 0.6em 0; }";
+  html += ".news-ai-body p:last-child { margin-bottom: 0; }";
   html += ".news-ai-error { color: #dc3545; font-size: 0.82rem; margin-top: 6px; }";
   /* Blog article styles */
   html += ".blog-list { display: flex; flex-direction: column; gap: 2rem; max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }";
