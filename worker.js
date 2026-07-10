@@ -68,7 +68,7 @@ async function batchSummarizeWithWorkersAI(articles, env) {
     
     let userContent = `以下有多篇英文 AI 新聞，請為每篇提供繁體中文標題同摘要。標題同摘要都必須係繁體中文，绝对唔可以用英文！\n\n`;
     articles.forEach((a, i) => {
-      const desc = (a.description || '').substring(0, 500);
+      const desc = (a.description || a.summary || '').substring(0, 500);
       userContent += `第${i+1}篇\n標題：${a.title}\n內容：${desc}\n\n`;
     });
     userContent += `請嚴格依照以下 JSON 陣列格式輸出（跟上面順序），唔好包含任何 JSON 以外嘅文字：\n[\n  {"headline": "中文標題", "summary": "2-4句摘要"},\n  ...\n]`;
@@ -2202,7 +2202,7 @@ async function fetchNewsData(env) {
       const itemsToSummarize = [];
       for (let i = batchStart; i < batchEnd; i++) {
         const item = withImages[i];
-        console.log(`[SumLoop] Processing article ${i+1}/${withImages.length}: "${item.title.substring(0, 60)}", hasDesc: ${!!item.description}`);
+        console.log(`[SumLoop] Processing article ${i+1}/${withImages.length}: "${item.title.substring(0, 60)}", hasDesc: ${!!item.summary}`);
         try {
           const cached = await getCachedArticle(item.url, env);
           if (cached && (cached.summary || cached.translatedTitle)) {
@@ -2250,10 +2250,7 @@ async function fetchNewsData(env) {
 
             if (!result.summary) {
               console.log(`[Workers AI] Failed, trying OpenRouter for: ${item.title.substring(0, 40)}...`);
-              const prompt = `標題：${item.title}
-內容：${item.description || ''}
-
-請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。
+              const prompt = `標題：${item.title}\n內容：${item.summary || ''}\n\n請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。
 
 【標題翻譯原則】
 - 唔好直譯！要理解原文意思後，用自然嘅中文重新表達
