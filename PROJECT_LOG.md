@@ -8,11 +8,16 @@ last_update_by: HermesBPi
 
 # AI News Digest 項目進展日誌
 
-## 🚀 最新狀態 (2026-07-10)
-**版本:** `38790aa` | **部署時間:** 10:18 HKT | **狀態:** 運行中
-**代碼大小:** ~260 KiB
+## 🚀 最新狀態 (2026-07-11)
+**版本:** `1c88658` | **部署時間:** 10:59 HKT | **狀態:** 運行中
 
-### 已修復
+### 已修復 (2026-07-11)
+- **fix: threshold guard 加強 — 同時 check `summarizedNews.length >= 5`** (Commit 1c88658)
+- **根因**: midnight cron run (`0 0 * * *`) 有時 Workers AI 短暫失靈，`summarizedNews` 得 0 篇，但 threshold guard 只 check `news.length >= 15`。`news` array 可以由 fallback pool（冇 AI 翻譯嘅文章）填滿 17 篇 → threshold pass → 寫入 KV 冚咗好嘅 cache → 用戶見到全部英文標題
+- **Fix**: 兩個 threshold guard（cron handler + `/trigger-news` handler）+ `kvWritten` response field 全部加埋 `newsData.summarizedNews.length >= 5` 條件
+- **結果**: 如果 AI summarization 失敗，KV 唔會俾 fallback-only 數據冚咗
+
+### 已修復 (2026-07-10)
 - **fix: field name mismatch — `item.description` 改為 `item.summary`** (Commit 38790aa)
 - **根因**: `parseRSS()` 將 RSS description 存入 `item.summary`（line 1212），但 `batchSummarizeWithWorkersAI()` 同 OpenRouter fallback prompt 讀 `item.description`（一直 undefined）。導致 9/25 新聞卡片既 AI 模型收到空嘅 content，只能靠標題估中文翻譯 → 失敗 → OpenRouter 出英文摘要 → final pass 翻譯又失敗 → 卡片顯示英文標題
 - **所有文章嘅 description 都係 undefined** (唔只 9 篇)，但 16 篇有中文翻譯係因為之前嘅 cache 有效
