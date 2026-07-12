@@ -1,0 +1,52 @@
+[
+  {
+    "title": "Grok Pricing 2026: SuperGrok, X Premium+, Heavy & API Costs",
+    "href": "https://felloai.com/grok-pricing/",
+    "body": "2 hours ago - Grok 4.5 API pricing is $2 / $6 per million tokens with a 500k token context and $0.50 cached input (a 75% cache discount); the prior Grok 4.3 stays available cheaper at $1.25 / $2.50 with a 1M context. xAI gives every developer up to $175/month ..."
+  },
+  {
+    "title": "How to Get Grok 4.20: SuperGrok and API Pricing Guide - Flowith Blog",
+    "href": "https://flowith.io/blog/grok-4-20-supergrok-subscriptions-guide/",
+    "body": "2 weeks ago - How to access Grok 4.20 through SuperGrok, Grok apps, X, and the xAI API, with source-bounded pricing and plan limits."
+  },
+  {
+    "title": "Rate Limits | SpaceXAI Docs",
+    "href": "https://docs.x.ai/developers/rate-limits",
+    "body": "3 weeks ago - For details on how tokens are counted and priced, see Models and Pricing. For per-request cost tracking, see Cost Tracking. When you exceed your rate limit, the API returns HTTP 429. Implement exponential backoff to handle this gracefully: ... import os import time from openai import OpenAI, RateLimitError client = OpenAI(base_url=\"https://api.x.ai/v1\", api_key=os.getenv(\"XAI_API_KEY\")) def request_with_backoff(messages, max_retries=5): for attempt in range(max_retries): try: return client.chat.completions.create( model=\"grok-4.5\", messages=messages, ) except RateLimitError: wait = 2 ** attempt time.sleep(wait) raise RateLimitError(\"Max retries exceeded\")"
+  },
+  {
+    "title": "Grok SuperGrok Usage Limits 2026: Complete Guide - Jin Grey",
+    "href": "https://jingrey.com/ai-tech/grok-supergrok-usage-limits/",
+    "body": "June 8, 2026 - Monthly quotas are cumulative across 30 days, but throttling can occur if you exceed typical patterns under the fair-use policy. If you’re evaluating xAI’s SuperGrok usage limits for 2026, you’ve landed in the right place."
+  },
+  {
+    "title": "Grok SuperGrok Limits Update June 2026 – What Changed?",
+    "href": "https://jingrey.com/ai-tech/grok-supergrok-limits-update/",
+    "body": "June 8, 2026 - I recommend developers using the API monitor their Grok AI daily limits through the dashboard and schedule heavy compute tasks early in the reset cycle. Grok AI for businesses evaluating AI software costs should note that xAI has positioned SuperGrok Heavy as the team-ready tier, with higher shared account caps. If you are comparing business AI software options, the Heavy tier now competes directly with ChatGPT Team at $25/user/month ..."
+  },
+  {
+    "title": "SuperGrok Limits 2026: Images, Voice, and Rate Limits Explained",
+    "href": "https://jingrey.com/ai-tech/supergrok-limits/",
+    "body": "June 8, 2026 - Every premium AI assistant enforces boundaries, and xAI is no exception. SuperGrok limits 2026 are designed to protect server capacity while giving most subscribers enough runway for daily tasks. However, what counts as “enough” depends entirely on your workflow. A freelance writer running 200 text queries and generating 50 images per day will have a very different experience from a developer automating batch API calls."
+  },
+  {
+    "title": "Consumption and Rate Limits - Grok API",
+    "href": "https://grok-api.apidog.io/consumption-and-rate-limits-934014m0",
+    "body": "1 month ago - Each grok model has different rate limits. To check your team's rate limits, you can visit xAI Console Models Page. Token is the base unit of prompt size for model inference and pricing purposes."
+  },
+  {
+    "title": "Current SuperGrok Usage Limits (June 2026) - Jin Grey",
+    "href": "https://jingrey.com/tools/current-supergrok-usage-limits/",
+    "body": "June 5, 2026 - Grok AI daily limits include 200 image generations, 50 video generations, and 50 DeepSearch queries for standard SuperGrok. Message limits are per-session rather than daily, and Voice Mode sessions are capped at 3 per day. Grok AI throttling is a temporary reduction in processing speed applied when users exceed short-term rate limits repeatedly. Standard users see a 30% throughput reduction for one hour after three rate-limit violations in 24 hours. Yes, xAI allows mid-month upgrades."
+  },
+  {
+    "title": "Does Grok 3 Have a Limit? All You Need to Know - CometAPI",
+    "href": "https://www.cometapi.com/does-grok-3-have-a-limit/",
+    "body": "January 14, 2026 - While xAI’s Grok 3 represents ... tokens—the deployed service currently enforces practical ceilings at around 128 K to 131 072 tokens per API call...."
+  },
+  {
+    "title": "Grok Pricing 2026: SuperGrok, X Premium+ & API Costs Explained",
+    "href": "https://diyai.io/ai-tools/text-generation/grok-pricing/",
+    "body": "3 weeks ago - SuperGrok is cheaper and focuses directly on the AI product, while Premium+ bundles features that many users may never use. The xAI API uses metered billing rather than a fixed monthly subscription. You pay for the tokens processed by the model and for optional tools such as web search, X search and code execution."
+  }
+]

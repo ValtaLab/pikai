@@ -3353,10 +3353,10 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
         let cleanSummary = item.summary.replace(/^標題[：:]\s*[\s\S]*?(?=\n{2,}|$)/, '').trim();
         // Also remove any standalone "標題：" line
         cleanSummary = cleanSummary.replace(/\n?標題[：:]\s*.+?\n/, '\n').trim();
-        html += '<div class="summarized-text"><span class="ai-digest-badge">AI Digest</span>' + escapeHtml(cleanSummary) + '</div>';
+        html += '<div class="summarized-text">' + escapeHtml(cleanSummary) + '</div>';
       }
       // AI deep summary button (bottom-right of card)
-      html += '<div class="news-ai-wrap"><button class="news-ai-btn" data-url="' + escapeHtml(item.url) + '" data-title="' + escapeHtml(item.translatedTitle || item.titleZh || item.title) + '" onclick="event.stopPropagation();fetchNewsSummary(this)">🧠 AI 深度總結</button><div class="news-ai-summary"><div class="news-ai-body"></div></div><div class="news-ai-error"></div></div>';
+      html += '<div class="news-ai-wrap"><button class="news-ai-btn" data-url="' + escapeHtml(item.url) + '" data-title="' + escapeHtml(item.translatedTitle || item.titleZh || item.title) + '" onclick="event.stopPropagation();fetchNewsSummary(this)">🧠 AI Digest</button><div class="news-ai-summary"><div class="news-ai-body"></div></div><div class="news-ai-error"></div></div>';
       html += '</div></div>';
     });
     html += '</div></div>';
