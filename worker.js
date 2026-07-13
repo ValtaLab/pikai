@@ -1902,6 +1902,25 @@ async function fetchYouTubeVideos(env, force = false) {
     });
     console.log(`[YouTube] Filtered to ${recentVideos.length} recent videos (48 hours)`);
 
+    // Translate video titles to Chinese for unified display in news feed
+    for (const video of recentVideos) {
+      if (!video.title || /[\u4e00-\u9fff]/.test(video.title)) {
+        video.titleZh = video.title; // already Chinese or empty
+        continue;
+      }
+      try {
+        let zh = await translateTitleWithWorkersAI(video.title, env);
+        if (!zh) {
+          const tRes = await translateWithOpenRouter(video.title, env);
+          zh = tRes.success ? tRes.text : '';
+        }
+        video.titleZh = zh || video.title;
+        console.log(`[YouTube] Translated: "${video.title.substring(0,30)}..." → "${video.titleZh.substring(0,30)}..."`);
+      } catch (_e) {
+        video.titleZh = video.title;
+      }
+    }
+
     // Cache results (12 hours)
     try {
       await env.AI_NEWS_KV.put(cacheKey, JSON.stringify({ videos: recentVideos, cachedAt: new Date().toISOString() }), { expirationTtl: 12 * 60 * 60 });
@@ -3621,7 +3640,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
         }
         html += '<div class="summarized-content">';
         html += '<div class="summarized-source">' + escapeHtml(video.channel) + ' · ' + escapeHtml(video.viewCount || '') + ' · ' + escapeHtml(video.duration || '') + '</div>';
-        html += '<div class="video-title">' + escapeHtml(video.title) + '</div>';
+        html += '<div class="video-title">' + escapeHtml(video.titleZh || video.title) + '</div>';
         html += '<div class="video-ai-wrap"><button class="video-ai-btn" onclick="event.stopPropagation();fetchVideoSummary(this,\'' + video.id + '\')">🧠 AI Digest</button><div class="video-ai-summary" id="ai-summary-' + video.id + '"><div class="video-ai-body"></div></div><div class="video-ai-error" id="ai-error-' + video.id + '"></div></div>';
         html += '</div></div>';
       } else {
