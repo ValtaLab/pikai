@@ -2846,7 +2846,11 @@ var worker_default = {
               if (!usedUrls.has(item.url) && newsToPick.length < topN) {
                 if (!item.translatedTitle || !/[\u4e00-\u9fff]/.test(item.translatedTitle)) {
                   try {
-                    const zh = await translateTitleWithWorkersAI(item.title, env);
+                    let zh = await translateTitleWithWorkersAI(item.title, env);
+                    if (!zh) {
+                      const tRes = await translateWithOpenRouter(item.title, env);
+                      zh = tRes.success ? tRes.text : '';
+                    }
                     if (zh) item.translatedTitle = zh;
                   } catch (_e) {}
                 }
@@ -2855,12 +2859,16 @@ var worker_default = {
             }
           }
           
-          // Final pass: translate remaining English headlines
+          // Final pass: translate remaining English headlines with full fallback chain
           for (const article of newsToPick) {
             const displayTitle = article.translatedTitle || article.title;
             if (!displayTitle || !/[\u4e00-\u9fff]/.test(displayTitle)) {
               try {
-                const zh = await translateTitleWithWorkersAI(article.title, env);
+                let zh = await translateTitleWithWorkersAI(article.title, env);
+                if (!zh) {
+                  const tRes = await translateWithOpenRouter(article.title, env);
+                  zh = tRes.success ? tRes.text : '';
+                }
                 if (zh) article.translatedTitle = zh;
               } catch (_e) {}
             }
