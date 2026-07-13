@@ -173,7 +173,7 @@ def fetch_source(source):
         
         feed = feedparser.parse(xml_data)
         
-        for entry in feed.entries[:100]:  # Fetch up to 100 per source (Pi 5, no limit)
+        for entry in feed.entries[:50]:  # Read up to 50 entries per source
             title = entry.get('title', '').strip()
             if not title:
                 continue
@@ -211,6 +211,10 @@ def fetch_source(source):
                 'pubDate': pub_date_str,
                 'ogImage': image or '',
             })
+            
+            # Cap per source to 5 articles to ensure diversity
+            if len(articles) >= 5:
+                break
         
         print(f"  {source['name']}: {len(feed.entries)} raw, {len(articles)} AI-filtered", flush=True)
         

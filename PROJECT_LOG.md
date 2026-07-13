@@ -585,3 +585,19 @@ tunnel URL changed, auto-deployed by monitor
                      KV.get → generatePage() → HTML
   ```
 - **Version**: 44c9341
+
+## 2026-07-13 21:53
+- **Type**: 大更新 — Pi 5 feeder 突破 100 篇
+- **Summary**: Pi 5 Python script 取代 Worker RSS fetch 限制，做到 100 篇全中文新聞
+- **Details**:
+  - **工作**：`POST /api/ingest` endpoint — Pi 5 送 articles，Worker 做 AI 總結 + OG fetch + KV write
+  - **Pi 5**：`pikai-feeder.py` — 並行 fetch 55 個 RSS sources，978 raw → 132 dedup → top 100 POST 俾 Worker
+  - **System cron**：`*/30 min` 自動行 feeder
+  - **AI 改進**：`translateTitleWithWorkersAI` 改用 Qwen3（之前 Llama 3.1 8B 中文唔可靠）
+  - **OG**：`MAX_OG_FETCHES` 30（無 subrequest limit）
+  - **Batch delay**：500ms → 200ms（AI 更快）
+  - **Source 優化**：cut 死 source（403/404），加 15+ 新 source（HN, Reddit, KDnuggets 等）
+  - **舊**：Worker 40 RSS + 8 OG = 49/50 subrequest → 卡住 40 篇
+  - **新**：Pi 5 任意 fetch → POST Worker → 100 篇 ✅
+- **Result**: 100 articles, 100% Chinese, ~65s per run
+- **Version**: 1f30a3b
