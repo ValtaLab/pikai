@@ -15,6 +15,7 @@ from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
+import random
 
 WORKER_URL = "https://pikai.isearover.workers.dev/api/ingest"
 TOP_N = 100  # Number of articles to process
@@ -85,7 +86,7 @@ AI_ONLY_SOURCES = {
     "The Decoder", "MarkTechPost", "Google AI Blog", "Kilo Blog",
     "Wired AI", "Semianalysis", "Ahead of AI", "The Algorithm",
     "KDnuggets", "FreeCodeCamp AI", "Dev.to AI", "Analytics Vidhya",
-    "Machine Learning Mastery"
+    "Machine Learning Mastery", "IEEE Robotics", "Robohub"
 }
 
 # AI keyword filter - same as worker.js parseRSS
@@ -287,6 +288,9 @@ def main():
     # Dedup
     deduped = dedup_articles(all_articles)
     print(f"[PikAI Feeder] After dedup: {len(deduped)}", flush=True)
+    
+    # Shuffle to mix sources (not grouped by source)
+    random.shuffle(deduped)
     
     # Cap at TOP_N
     to_send = deduped[:TOP_N]
