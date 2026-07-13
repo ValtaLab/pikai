@@ -564,7 +564,15 @@ var NEWS_SOURCES = [
   { name: "Simon Willison", url: "https://simonwillison.net/atom/everything/", format: "atom" },
   { name: "Lil'Log", url: "https://lilianweng.github.io/index.xml" },
   { name: "Interconnects", url: "https://www.interconnects.ai/feed" },
-  { name: "Latent Space", url: "https://latent.space/feed" }
+  { name: "Semianalysis", url: "https://semianalysis.com/feed/" },
+  { name: "Ahead of AI", url: "https://magazine.sebastianraschka.com/feed" },
+  { name: "Not Boring", url: "https://www.notboring.co/feed" },
+  { name: "Stratechery", url: "https://stratechery.com/feed/" },
+  { name: "Platformer", url: "https://www.platformer.news/feed" },
+  { name: "The Algorithm", url: "https://www.technologyreview.com/topic/artificial-intelligence/rss/" },
+  { name: "IEEE Robotics", url: "https://spectrum.ieee.org/feeds/topic/robotics.rss" },
+  { name: "arXiv Robotics", url: "https://export.arxiv.org/rss/cs.RO" },
+  { name: "Robohub", url: "https://robohub.org/feed/" }
 ];
 var EXCLUDED_DOMAINS = [
   "sina.com",
@@ -1058,7 +1066,7 @@ async function translateTools(tools, env) {
   // Summarize ALL tools with Workers AI + NVIDIA fallback (batch to avoid timeout)
   console.log(`[translateTools] Summarizing ALL ${tools.length} tools with Workers AI (cached)...`);
   const BATCH_SIZE = 5;
-  const BATCH_DELAY = 2000; // 2 seconds between batches
+  const BATCH_DELAY = 500; // 0.5s between batches (Qwen3 30B is fast)
   
   for (let batchStart = 0; batchStart < tools.length; batchStart += BATCH_SIZE) {
     const batchEnd = Math.min(batchStart + BATCH_SIZE, tools.length);
@@ -1228,7 +1236,7 @@ async function fetchAINews() {
     "VentureBeat AI", "IEEE Spectrum AI", "Towards Data Science",
     "Artificial Intelligence News", "Ars Technica", "Hugging Face",
     "The Decoder", "MarkTechPost", "Google AI Blog", "Kilo Blog",
-    "Wired AI"
+    "Wired AI", "Semianalysis", "Ahead of AI", "The Algorithm"
   ]);
   
   // Parallel fetch all sources - limit 10 per source for diversity
@@ -2193,7 +2201,7 @@ async function fetchNewsData(env) {
     console.log(`[fetchNewsData] Summarizing ${summarizeCount} articles with Workers AI (capped at ${MAX_SUMMARIZE} for subrequest budget)...`);
     const summarizedNews = [];
     const BATCH_SIZE = 3;
-    const BATCH_DELAY = 2000; // 2 seconds between batches for subrequest safety
+    const BATCH_DELAY = 500; // 0.5s between batches (Qwen3 30B is fast, no need for 2s delay)
     
     for (let batchStart = 0; batchStart < summarizeCount; batchStart += BATCH_SIZE) {
       const batchEnd = Math.min(batchStart + BATCH_SIZE, summarizeCount);
