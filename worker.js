@@ -3118,13 +3118,17 @@ async function submitPost() {
       }
       const orRankings = await readORRankings(env);
       data2.orRankings = orRankings;
-      // Pre-translate video titles (Workers AI, parallel)
+      // Pre-translate video titles (Workers AI first, OpenRouter fallback)
       if (data2.videos && data2.videos.length) {
-        await Promise.all(data2.videos.map((async (v) => {
+        for (const v of data2.videos) {
           if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
-            try { var zh = await translateTitleWithWorkersAI(v.title, env); if (zh) v.titleZh = zh; } catch (e) {}
+            try {
+              let zh = await translateTitleWithWorkersAI(v.title, env);
+              if (!zh) { const tr = await translateWithOpenRouter(v.title, env); if (tr.success) zh = tr.text; }
+              if (zh) v.titleZh = zh;
+            } catch (e) {}
           }
-        })));
+        }
       }
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
@@ -3149,13 +3153,17 @@ async function submitPost() {
       data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
       const orRankings2 = await readORRankings(env);
       data2.orRankings = orRankings2;
-      // Pre-translate video titles before rendering
+      // Pre-translate video titles (Workers AI first, OpenRouter fallback)
       if (data2.videos && data2.videos.length) {
-        await Promise.all(data2.videos.map((async (v) => {
-          if (!v.titleZh && v.title && !/[一-鿿]/.test(v.title)) {
-            try { var zh2a = await translateTitleWithWorkersAI(v.title, env); if (zh2a) v.titleZh = zh2a; } catch (e) {}
+        for (const v of data2.videos) {
+          if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
+            try {
+              let zh = await translateTitleWithWorkersAI(v.title, env);
+              if (!zh) { const tr = await translateWithOpenRouter(v.title, env); if (tr.success) zh = tr.text; }
+              if (zh) v.titleZh = zh;
+            } catch (e) {}
           }
-        })));
+        }
       }
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
@@ -3168,13 +3176,17 @@ async function submitPost() {
       data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
       const orRankings3 = await readORRankings(env);
       data.orRankings = orRankings3;
-      // Pre-translate video titles before rendering
+      // Pre-translate video titles (Workers AI first, OpenRouter fallback)
       if (data.videos && data.videos.length) {
-        await Promise.all(data.videos.map((async (v) => {
-          if (!v.titleZh && v.title && !/[一-鿿]/.test(v.title)) {
-            try { var zh3 = await translateTitleWithWorkersAI(v.title, env); if (zh3) v.titleZh = zh3; } catch (e) {}
+        for (const v of data.videos) {
+          if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
+            try {
+              let zh = await translateTitleWithWorkersAI(v.title, env);
+              if (!zh) { const tr = await translateWithOpenRouter(v.title, env); if (tr.success) zh = tr.text; }
+              if (zh) v.titleZh = zh;
+            } catch (e) {}
           }
-        })));
+        }
       }
       const html = generatePage(data);
       return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
