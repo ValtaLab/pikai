@@ -59,6 +59,8 @@ NEWS_SOURCES = [
     {"name": "The Algorithm", "url": "https://www.technologyreview.com/topic/artificial-intelligence/rss/"},
     {"name": "IEEE Robotics", "url": "https://spectrum.ieee.org/feeds/topic/robotics.rss"},
     {"name": "Robohub", "url": "https://robohub.org/feed/"},
+    {"name": "Robotics & Auto News", "url": "https://www.roboticsandautomationnews.com/feed/"},
+    {"name": "ScienceDaily Robotics", "url": "https://www.sciencedaily.com/rss/computers_math/robotics.xml"},
     # Extra sources for volume
     {"name": "Hacker News", "url": "https://hnrss.org/frontpage"},
     {"name": "Hacker News Show", "url": "https://hnrss.org/show"},
@@ -86,7 +88,8 @@ AI_ONLY_SOURCES = {
     "The Decoder", "MarkTechPost", "Google AI Blog", "Kilo Blog",
     "Wired AI", "Semianalysis", "Ahead of AI", "The Algorithm",
     "KDnuggets", "FreeCodeCamp AI", "Dev.to AI", "Analytics Vidhya",
-    "Machine Learning Mastery", "IEEE Robotics", "Robohub"
+    "Machine Learning Mastery", "IEEE Robotics", "Robohub",
+    "Robotics & Auto News", "ScienceDaily Robotics"
 }
 
 # AI keyword filter - same as worker.js parseRSS
