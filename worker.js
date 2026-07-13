@@ -95,12 +95,12 @@ async function batchSummarizeWithWorkersAI(articles, env) {
 【輸出格式】
 嚴格輸出 JSON 陣列，順序同上，每人一條。`;
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
+    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userContent }
       ],
-      max_tokens: 4000,
+      max_tokens: 6000,
       temperature: 0.3
     });
     clearTimeout(timeoutId);
@@ -172,7 +172,7 @@ async function summarizeWithWorkersAI(title, description, env) {
     }
     
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25s timeout (Workers AI can be slow)
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout (Qwen3 30B needs more time)
     
     const systemPrompt = `你係專業嘅科技新聞編輯，專精於人工智慧領域。你嘅任務係將英文 AI 新聞轉化為高品質嘅繁體中文，幫助 AI 新手同初級開發者快速理解重點。
 
@@ -204,12 +204,12 @@ async function summarizeWithWorkersAI(title, description, env) {
   "confidence": 8
 }`;
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
+    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `標題：${title}\n內容：${description}` }
       ],
-      max_tokens: 600,
+      max_tokens: 800,
       temperature: 0.3
     });
     clearTimeout(timeoutId);
