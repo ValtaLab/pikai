@@ -2909,17 +2909,13 @@ var worker_default = {
             const ytCacheKey = 'youtube:videos:v25';
             const ytCached = await readYouTubeCache(env, ytCacheKey);
             let videos = ytCached ? ytCached.filteredVideos : [];
-            // Translate any untranslated video titles (lazy backfill for old cache)
+            // Translate untranslated video titles via OpenRouter (reliable)
             for (const v of videos) {
               if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
                 try {
-                  let zh = await translateTitleWithWorkersAI(v.title, env);
-                  if (!zh) {
-                    const tRes = await translateWithOpenRouter(v.title, env);
-                    zh = tRes.success ? tRes.text : '';
-                  }
-                  if (zh) v.titleZh = zh;
-                } catch (_e) { /* leave untranslated for next retry */ }
+                  const tRes = await translateWithOpenRouter(v.title, env);
+                  if (tRes.success && tRes.text) v.titleZh = tRes.text;
+                } catch (_e) { /* retry next time */ }
               }
             }
             data.videos = videos;
