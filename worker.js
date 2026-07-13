@@ -2665,6 +2665,196 @@ var worker_default = {
           return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
         }
       }
+      if (url.pathname === "/api/ingest" && request.method === "POST") {
+        try {
+          const body = await request.json();
+          const articles = body.articles || [];
+          const topN = body.topN || 100;
+          const toolsData = body.tools !== undefined ? body.tools : null;
+          
+          console.log(`[/api/ingest] Received ${articles.length} articles from Pi 5, processing top ${topN}`);
+          
+          if (articles.length === 0) {
+            return new Response(JSON.stringify({ error: "No articles provided" }), { status: 400, headers: { "Content-Type": "application/json" } });
+          }
+          
+          // Cap articles
+          const toProcess = articles.slice(0, topN);
+          
+          // OG images: KV cache first, then limited new fetches
+          const withImages = [];
+          let ogFetchCount = 0;
+          const MAX_OG_FETCHES = 30; // Much higher since Pi 5 does RSS, no RSS subrequests
+          for (const item of toProcess) {
+            if (item.ogImage) { withImages.push(item); continue; }
+            const cacheKey = `ogimg:v2:${md5(item.url)}`;
+            try {
+              const cachedImage = await env.AI_NEWS_KV.get(cacheKey);
+              if (cachedImage) {
+                withImages.push({ ...item, ogImage: cachedImage === "none" ? null : cachedImage });
+                continue;
+              }
+            } catch (_e) { /* KV miss */ }
+            if (ogFetchCount < MAX_OG_FETCHES) {
+              ogFetchCount++;
+              try {
+                const ogUrl = await fetchOGImage(item.url, null);
+                if (ogUrl) {
+                  await env.AI_NEWS_KV.put(cacheKey, ogUrl);
+                  withImages.push({ ...item, ogImage: ogUrl });
+                  continue;
+                } else {
+                  await env.AI_NEWS_KV.put(cacheKey, "none");
+                }
+              } catch (_e) { /* OG fetch failed */ }
+            }
+            withImages.push(item);
+          }
+          
+          // AI summarization (same batch logic as fetchNewsData)
+          const summarizeCount = Math.min(withImages.length, topN);
+          const summarizedNews = [];
+          const BATCH_SIZE = 5;
+          const BATCH_DELAY = 500;
+          
+          for (let batchStart = 0; batchStart < summarizeCount; batchStart += BATCH_SIZE) {
+            const batchEnd = Math.min(batchStart + BATCH_SIZE, summarizeCount);
+            const itemsToSummarize = [];
+            
+            for (let i = batchStart; i < batchEnd; i++) {
+              const item = withImages[i];
+              try {
+                const cached = await getCachedArticle(item.url, env);
+                if (cached && (cached.summary || cached.translatedTitle)) {
+                  const badPatterns = [/唔再.*之間/, /之間中/, /就.*[冇无].*再/, /[冇无].*再.*之間/, /[是係].*[冇无].*再/];
+                  const titleOk = cached.translatedTitle && /[\u4e00-\u9fff]/.test(cached.translatedTitle) &&
+                    !badPatterns.some(p => p.test(cached.translatedTitle)) &&
+                    cached.translatedTitle.length <= 60 && cached.translatedTitle.length >= 8;
+                  const summaryOk = cached.summary && /[\u4e00-\u9fff]/.test(cached.summary) && cached.summary.length >= 10;
+                  if (titleOk) {
+                    summarizedNews.push({ ...item, translatedTitle: cached.translatedTitle, summary: cached.summary, summarizedAt: new Date().toISOString() });
+                    continue;
+                  }
+                }
+                itemsToSummarize.push(item);
+              } catch (_e) { itemsToSummarize.push(item); }
+            }
+            
+            if (itemsToSummarize.length > 0) {
+              try {
+                const batchResults = await batchSummarizeWithWorkersAI(itemsToSummarize, env);
+                for (let rIndex = 0; rIndex < itemsToSummarize.length; rIndex++) {
+                  const item = itemsToSummarize[rIndex];
+                  let result = batchResults[rIndex] || { translatedTitle: '', summary: '', qualityFlag: 'batch_missing' };
+                  
+                  if (result.summary && !/[\u4e00-\u9fff]/.test(result.summary)) result.summary = '';
+                  if (result.translatedTitle && !/[\u4e00-\u9fff]/.test(result.translatedTitle)) result.translatedTitle = '';
+                  
+                  if (!result.summary) {
+                    const fallbackSource = (item.description || item.summary || item.title || '').substring(0, 200);
+                    const tRes = await translateWithOpenRouter(item.title, env);
+                    const sRes = await translateWithOpenRouter(fallbackSource, env);
+                    const translatedTitle = tRes.success ? tRes.text : '';
+                    const summary = sRes.success ? sRes.text : '';
+                    if (summary && /[\u4e00-\u9fff]/.test(summary)) {
+                      result = { translatedTitle, summary, qualityFlag: 'openrouter_translate' };
+                    }
+                  }
+                  
+                  if (!result.summary) {
+                    const extract = (item.description || item.summary || '').substring(0, 150);
+                    if (extract.length > 20) {
+                      result = { translatedTitle: result.translatedTitle || '', summary: extract, qualityFlag: 'raw_extract' };
+                    }
+                  }
+                  
+                  if (result.summary || (result.translatedTitle && /[\u4e00-\u9fff]/.test(result.translatedTitle))) {
+                    let translatedTitle = result.translatedTitle || '';
+                    if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
+                      try {
+                        const zh = await translateTitleWithWorkersAI(item.title, env);
+                        if (zh) translatedTitle = zh;
+                      } catch (_e) {}
+                    }
+                    summarizedNews.push({
+                      ...item,
+                      translatedTitle: translatedTitle || item.title,
+                      summary: result.summary || '',
+                      summarizedAt: new Date().toISOString()
+                    });
+                    await setCachedArticle(item.url, { ...result, translatedTitle }, env);
+                  }
+                }
+              } catch (e) { console.log(`[Ingest] Batch summarize failed: ${e.message}`); }
+            }
+            
+            if (batchEnd < summarizeCount) {
+              await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
+            }
+          }
+          
+          // Merge summarized + remaining
+          const newsToPick = [...summarizedNews];
+          if (newsToPick.length < topN) {
+            const usedUrls = new Set(newsToPick.map(a => a.url));
+            for (const item of withImages) {
+              if (!usedUrls.has(item.url) && newsToPick.length < topN) {
+                if (!item.translatedTitle || !/[\u4e00-\u9fff]/.test(item.translatedTitle)) {
+                  try {
+                    const zh = await translateTitleWithWorkersAI(item.title, env);
+                    if (zh) item.translatedTitle = zh;
+                  } catch (_e) {}
+                }
+                newsToPick.push(item);
+              }
+            }
+          }
+          
+          // Final pass: translate remaining English headlines
+          for (const article of newsToPick) {
+            const displayTitle = article.translatedTitle || article.title;
+            if (!displayTitle || !/[\u4e00-\u9fff]/.test(displayTitle)) {
+              try {
+                const zh = await translateTitleWithWorkersAI(article.title, env);
+                if (zh) article.translatedTitle = zh;
+              } catch (_e) {}
+            }
+          }
+          
+          // Build data structure for KV
+          let toolsData2 = Array.isArray(toolsData) ? toolsData : [];
+          if (toolsData2.length === 0) {
+            try { toolsData2 = await fetchToolsData(env); } catch (_e) {}
+          }
+          
+          const data = { news: newsToPick, summarizedNews, tools: toolsData2 };
+          data.updatedAt = new Date().toISOString();
+          
+          // Read existing data for blog posts and videos
+          try {
+            const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
+            data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
+            const ytCacheKey = 'youtube:videos:v25';
+            const ytCached = await readYouTubeCache(env, ytCacheKey);
+            data.videos = ytCached ? ytCached.filteredVideos : [];
+          } catch (_e) { data.blogPosts = []; data.videos = []; }
+          
+          // Write to KV
+          await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+          
+          console.log(`[/api/ingest] Done: ${newsToPick.length} articles, ${summarizedNews.length} summarized, ${ogFetchCount} OG fetches`);
+          
+          return new Response(JSON.stringify({
+            success: true,
+            articlesProcessed: newsToPick.length,
+            summarizedCount: summarizedNews.length,
+            ogFetches: ogFetchCount,
+            kvWritten: true
+          }, null, 2), { headers: { "Content-Type": "application/json" } });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
+        }
+      }
       if (url.pathname === "/trigger-news") {
         try {
           const newsData = await fetchNewsData(env);
