@@ -541,6 +541,7 @@ __name(fetchOpenRouterRankings, "fetchOpenRouterRankings");
 // worker.js
 var NEWS_SOURCES = [
   { name: "MIT Technology Review", url: "https://www.technologyreview.com/feed/" },
+  { name: "TechRadar", url: "https://www.techradar.com/rss" },
   { name: "TechCrunch", url: "https://techcrunch.com/feed/" },
   { name: "VentureBeat", url: "https://venturebeat.com/feed/" },
   { name: "The Verge", url: "https://www.theverge.com/rss/frontpage/index.xml" },

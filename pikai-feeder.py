@@ -23,6 +23,7 @@ TOP_N = 100  # Number of articles to process
 # Exact copy from worker.js
 NEWS_SOURCES = [
     {"name": "MIT Technology Review", "url": "https://www.technologyreview.com/feed/"},
+    {"name": "TechRadar", "url": "https://www.techradar.com/rss"},
     {"name": "TechCrunch", "url": "https://techcrunch.com/feed/"},
     {"name": "VentureBeat", "url": "https://venturebeat.com/feed/"},
     {"name": "The Verge", "url": "https://www.theverge.com/rss/frontpage/index.xml"},
@@ -220,8 +221,9 @@ def fetch_source(source):
             if not is_ai_related(title, desc, is_ai_only):
                 continue
             
-            # Image from RSS
-            image = extract_image(entry, source['url'])
+            # Image from RSS - skip for Techmeme (tiny 140x74 thumbnails,
+            # Worker will fetch high-res OG image from Techmeme page instead)
+            image = '' if source['name'] == 'Techmeme' else extract_image(entry, source['url'])
             
             # Publication date
             pub_date = parse_pubdate(entry)
