@@ -2159,7 +2159,7 @@ async function fetchNewsData(env) {
     console.log(`[fetchNewsData] After dedup: ${news.length} → ${deduped.length} articles`);
     
     // CRITICAL FIX: Cap articles to stay under Cloudflare 50 subrequest limit
-    // Budget: ~40 RSS + up to 5 OG fetches = ~45 (under 50 subrequest limit)
+    // Budget: ~40 RSS + 2 tools + 8 OG = ~50 (at subrequest limit)
     const MAX_ARTICLES = 50;
     const MAX_SUMMARIZE = 50;
     const toProcess = deduped.slice(0, MAX_ARTICLES);
@@ -2168,7 +2168,7 @@ async function fetchNewsData(env) {
     // OG images: KV cache first, then limited new fetches for articles without RSS images
     const withImages = [];
     let ogFetchCount = 0;
-    const MAX_OG_FETCHES = 10;
+    const MAX_OG_FETCHES = 8;
     for (const item of toProcess) {
       if (item.ogImage) { withImages.push(item); continue; }
       const cacheKey = `ogimg:v2:${md5(item.url)}`;
