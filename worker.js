@@ -3069,9 +3069,9 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".card-image { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: linear-gradient(135deg, #e8e8e8, #f5f5f5); }";
   html += ".card-image-placeholder { width: 100%; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #f0f4ff, #e8e8f0); color: #ccc; font-size: 3rem; }";
   html += ".card-image-favicon { width: 100%; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #f0f4ff, #e8e8f0); }";
-  html += ".card-image-favicon img { width: 48px; height: 48px; object-fit: contain; }
+  html += ".card-image-favicon img { width: 48px; height: 48px; object-fit: contain; }";
   html += ".summarized-image-favicon { width: 100%; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #f0f4ff, #e8e8f0); }";
-  html += ".summarized-image-favicon img { width: 48px; height: 48px; object-fit: contain; }";";
+  html += ".summarized-image-favicon img { width: 48px; height: 48px; object-fit: contain; }";
   html += ".card-body { padding: 1.1rem; flex: 1; display: flex; flex-direction: column; }";
   html += ".card-source { font-size: 0.72rem; color: #0066ff; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.5rem; font-weight: 600; }";
   html += ".card-title { font-size: 1.2rem; color: #222; line-height: 1.45; margin-bottom: 0.6rem; font-weight: 700; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; letter-spacing: -0.01em; }";
