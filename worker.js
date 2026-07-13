@@ -2909,14 +2909,24 @@ var worker_default = {
             const ytCacheKey = 'youtube:videos:v25';
             const ytCached = await readYouTubeCache(env, ytCacheKey);
             let videos = ytCached ? ytCached.filteredVideos : [];
-            // Translate untranslated video titles via OpenRouter (reliable)
-            for (const v of videos) {
-              if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
-                try {
-                  const tRes = await translateWithOpenRouter(v.title, env);
-                  if (tRes.success && tRes.text) v.titleZh = tRes.text;
-                } catch (_e) { /* retry next time */ }
-              }
+            // Batch-translate untranslated video titles via OpenRouter
+            const untranslated = videos.filter(v => !v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title));
+            if (untranslated.length > 0) {
+              try {
+                const titlesForBatch = untranslated.map((v, i) => `${i+1}. ${v.title}`).join('\n');
+                const prompt = `Translate these English video titles to Traditional Chinese (繁體中文). Return ONLY a JSON array of strings in the same order, one per line. No explanations.\n\n${titlesForBatch}`;
+                const result = await callOpenRouterFree(prompt, env.OPENROUTER_API_KEY, 300);
+                if (result.success && result.text) {
+                  const jsonMatch = result.text.match(/\[[\s\S]*?\]/);
+                  if (jsonMatch) {
+                    const translations = JSON.parse(jsonMatch[0]);
+                    untranslated.forEach((v, i) => {
+                      const zh = translations[i];
+                      if (zh && /[\u4e00-\u9fff]/.test(zh)) v.titleZh = zh;
+                    });
+                  }
+                }
+              } catch (_e) { /* retry next time */ }
             }
             data.videos = videos;
           } catch (_e) { data.blogPosts = []; data.videos = []; }
