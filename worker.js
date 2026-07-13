@@ -19,7 +19,14 @@ const _youtubeWhitelistIds = new Set([
   'UCvKRFNawVcuz4b9ihUTApCg','UCMLtBahI5DMrt0NPvDSoIRQ','UCR9j1jqqB5Rse69wjUnbYwA',
   'UCBa5G_ESCn8Yd4vw5U-gIcg','UCEBb1b_L6zDS3xTUrIALZOw','UCYO_jab_esuFRV4b17AJtAw',
   'UCcIXc5mJsHVYTZR1maL5l9w','UCtYLUTtgS3k1Fg4y5tAhLbw','UCTMRxtyHoE3LPcrl-kT4AQQ',
-  'UC0m-80FnNY2Qb7obvTL_2fA'
+  'UC0m-80FnNY2Qb7obvTL_2fA',
+  // Robotics channels
+  'UC7vVhkEfw4nOGp8TyDk7RcQ', // Boston Dynamics
+  'UCsMbp4V8oxzHCMdOUP-3oWw', // Unitree Robotics
+  'UCoHslVexR2q57wUoCRfdUsg', // 1X (humanoid robotics)
+  'UCYlq-KmwPjc1DtsGmthFqSQ', // Figure (AI robotics)
+  'UCN-StetwWuVYf-MU2_NVj4A', // Agility Robotics
+  'UCXNviQjBONXljxkJzNV-Xbw', // The Robot Brains Podcast
 ]);
 
 function filterAllowedYouTubeVideos(videos = [], logPrefix = "[YouTube]") {
@@ -3545,7 +3552,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       if (seenVideoIds.has(v.id)) return false;
       seenVideoIds.add(v.id);
       return true;
-    }).slice(0, 10).forEach(function(video) {
+    }).slice(0, 15).forEach(function(video) {
       combinedItems.push({ type: 'video', data: video });
     });
   }
