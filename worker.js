@@ -41,7 +41,7 @@ function filterAllowedYouTubeVideos(videos = [], logPrefix = "[YouTube]") {
 }
 __name(filterAllowedYouTubeVideos, "filterAllowedYouTubeVideos");
 
-async function readYouTubeCache(env, cacheKey = "youtube:videos:v25") {
+async function readYouTubeCache(env, cacheKey = "youtube:videos:v26") {
   try {
     const cached = await env.AI_NEWS_KV.get(cacheKey);
     if (!cached) return null;
@@ -168,6 +168,50 @@ async function batchSummarizeWithWorkersAI(articles, env) {
   }
 }
 __name(batchSummarizeWithWorkersAI, 'batchSummarizeWithWorkersAI');
+
+// Batch translate English titles to Chinese using Workers AI — single call, no rate limits
+async function batchTranslateTitlesWithWorkersAI(titles, env) {
+  console.log(`[Workers AI] batchTranslateTitles: ${titles.length} titles`);
+  try {
+    if (!env.AI || typeof env.AI.run !== 'function') {
+      return titles.map(() => null);
+    }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
+    
+    let userContent = '將以下英文標題翻譯成繁體中文，只輸出 JSON 陣列，格式：["中文標題1", "中文標題2", ...]\n\n';
+    titles.forEach((t, i) => { userContent += `${i+1}. ${t}\n`; });
+    
+    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
+      messages: [
+        { role: 'system', content: '你係專業翻譯。將每個英文標題翻譯成自然通順嘅繁體中文（15-30字）。保留公司名、產品名、技術名詞。只輸出 JSON 陣列。' },
+        { role: 'user', content: userContent }
+      ],
+      max_tokens: 2000,
+      temperature: 0.3
+    });
+    clearTimeout(timeoutId);
+    
+    let parsed = null;
+    const text = typeof response === 'string' ? response : response?.response;
+    if (typeof text === 'string') {
+      const m = text.match(/\[[\s\S]*?\]/);
+      if (m) try { parsed = JSON.parse(m[0]); } catch(e) {}
+    }
+    if (Array.isArray(response)) parsed = response;
+    
+    if (parsed && Array.isArray(parsed)) {
+      console.log(`[Workers AI] Batch translated ${parsed.length}/${titles.length} titles`);
+      return parsed.map(t => (typeof t === 'string' && /[\u4e00-\u9fff]/.test(t)) ? t : null);
+    }
+    console.log('[Workers AI] Batch translation parse failed');
+    return titles.map(() => null);
+  } catch (e) {
+    console.log(`[Workers AI] Batch translation error: ${e.message}`);
+    return titles.map(() => null);
+  }
+}
+__name(batchTranslateTitlesWithWorkersAI, 'batchTranslateTitlesWithWorkersAI');
 
 async function summarizeWithWorkersAI(title, description, env) {
   console.log(`[Workers AI] >>> summarizeWithWorkersAI called for: "${title.substring(0, 60)}", desc length: ${(description || '').length}`);
@@ -1639,7 +1683,7 @@ async function fetchYouTubeVideos(env, force = false) {
       return [];
     }
 
-    const cacheKey = 'youtube:videos:v25';
+    const cacheKey = 'youtube:videos:v26';
 
     // Check KV cache first
     const cachedVideos = await readYouTubeCache(env, cacheKey);
@@ -1902,19 +1946,18 @@ async function fetchYouTubeVideos(env, force = false) {
     });
     console.log(`[YouTube] Filtered to ${recentVideos.length} recent videos (48 hours)`);
 
-    // Translate video titles to Chinese for unified display in news feed
-    for (const video of recentVideos) {
-      if (!video.title || /[\u4e00-\u9fff]/.test(video.title)) {
-        video.titleZh = video.title; // already Chinese or empty
-        continue;
-      }
-      try {
-        let zh = await translateTitleWithWorkersAI(video.title, env);
-        if (zh) video.titleZh = zh;
-        console.log(`[YouTube] Translated: "${video.title.substring(0,30)}..." → "${video.titleZh?.substring(0,30) || '(failed)'}..."`);
-      } catch (_e) {
-        /* leave untranslated for next retry */
-      }
+    // Batch translate video titles to Chinese (single Workers AI call)
+    const needTranslation = recentVideos.filter(v => v.title && !/[\u4e00-\u9fff]/.test(v.title));
+    if (needTranslation.length > 0) {
+      const translations = await batchTranslateTitlesWithWorkersAI(needTranslation.map(v => v.title), env);
+      needTranslation.forEach((v, i) => {
+        if (translations[i]) v.titleZh = translations[i];
+        console.log(`[YouTube] Translated: "${v.title.substring(0,30)}..." → "${(v.titleZh || '(failed)').substring(0,30)}"`);
+      });
+    }
+    // Already-Chinese titles stay as-is
+    for (const v of recentVideos) {
+      if (!v.titleZh && /[\u4e00-\u9fff]/.test(v.title || '')) v.titleZh = v.title;
     }
 
     // Cache results (12 hours)
@@ -2843,7 +2886,7 @@ var worker_default = {
           try {
             const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
             data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-            const ytCacheKey = 'youtube:videos:v25';
+            const ytCacheKey = 'youtube:videos:v26';
             const ytCached = await readYouTubeCache(env, ytCacheKey);
             data.videos = ytCached ? ytCached.filteredVideos : [];
           } catch (_e) { data.blogPosts = []; data.videos = []; }
@@ -3061,7 +3104,7 @@ async function submitPost() {
       const cached = await env.AI_NEWS_KV.get("news-data");
       if (cached) {
       const data2 = JSON.parse(cached);
-      const ytCacheKey = 'youtube:videos:v25';
+      const ytCacheKey = 'youtube:videos:v26';
       const ytCached = await readYouTubeCache(env, ytCacheKey);
       if (ytCached && ytCached.filteredVideos.length > 0) {
         data2.videos = ytCached.filteredVideos;
