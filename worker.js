@@ -3448,10 +3448,10 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += '</div>';
   html += '<div class="tabs">';
   html += `<div class="tab tab-news active" data-tab-index="0" onclick="switchTab('news')"><span>今日必讀 <span class="tab-count">` + newsCount + "</span></span></div>";
-  html += `<div class="tab tab-videos" data-tab-index="1" onclick="switchTab('videos')"><span>AI 影片 <span class="tab-count">` + Math.min(videosCount, 30) + "</span></span></div>";
-  html += `<div class="tab tab-tools" data-tab-index="2" onclick="switchTab('tools')"><span>實用工具 <span class="tab-count">` + toolsCount + "</span></span></div>";
-  html += `<div class="tab tab-knowledge" data-tab-index="3" onclick="switchTab('knowledge')"><span>AI 知識庫</span></div>`;
-  html += `<div class="tab tab-blog" data-tab-index="4" onclick="switchTab('blog')"><span>應用實例</span></div>`;
+
+  html += `<div class="tab tab-tools" data-tab-index="1" onclick="switchTab('tools')"><span>實用工具 <span class="tab-count">` + toolsCount + "</span></span></div>";
+  html += `<div class="tab tab-knowledge" data-tab-index="2" onclick="switchTab('knowledge')"><span>AI 知識庫</span></div>`;
+  html += `<div class="tab tab-blog" data-tab-index="3" onclick="switchTab('blog')"><span>應用實例</span></div>`;
   html += "</div>";
   html += '<div class="content-section section-news active">';
   // OpenRouter Model Rankings — premium redesign
@@ -3530,84 +3530,76 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     }
     return false;
   }
+  // Merge news and videos, then shuffle
+  const combinedItems = [];
   if (news && news.length > 0) {
     const filteredNews = news.filter(item => !isAdvertorial(item));
-    html += '<div class="summarized-section">';
-    html += '<div class="summarized-grid">';
     filteredNews.forEach(function(item) {
-      html += `<div class="summarized-card" onclick="window.open('` + escapeHtml(item.url) + `', '_blank')">`;
-      // Image - show OG image, or favicon fallback, or gradient placeholder
-      if (item.ogImage) {
-        const safeUrl = encodeURI(item.ogImage).replace(/%25([0-9A-Fa-f]{2})/g, '%$1');
-        html += '<img class="summarized-image" src="' + safeUrl + '" alt="" onerror="this.style.display=\'none\'">';
-      } else {
-        // Domain favicon fallback for articles without OG images
-        const domain = (() => { try { return new URL(item.url).hostname; } catch(e) { return ''; } })();
-        html += '<div class="summarized-image-favicon"><img src="https://www.google.com/s2/favicons?domain=' + domain + '&sz=64" alt="" style="width:48px;height:48px;object-fit:contain" onerror="this.parentElement.className=\'summarized-image-placeholder\';this.outerHTML=\'📰\'"></div>';
-      }
-      html += '<div class="summarized-content">';
-      html += '<div class="summarized-source">' + escapeHtml(item.source ? item.source.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : 'AI News') + '</div>';
-      html += '<div class="summarized-title">' + escapeHtml(item.translatedTitle || item.titleZh || item.title) + '</div>';
-      if (item.summary) {
-        // Remove "標題：" prefix from summary if present (Workers AI sometimes includes it)
-        let cleanSummary = item.summary.replace(/^標題[：:]\s*[\s\S]*?(?=\n{2,}|$)/, '').trim();
-        // Also remove any standalone "標題：" line
-        cleanSummary = cleanSummary.replace(/\n?標題[：:]\s*.+?\n/, '\n').trim();
-        html += '<div class="summarized-text">' + escapeHtml(cleanSummary) + '</div>';
-      }
-      // AI deep summary button (bottom-right of card)
-      html += '<div class="news-ai-wrap"><button class="news-ai-btn" data-url="' + escapeHtml(item.url) + '" data-title="' + escapeHtml(item.translatedTitle || item.titleZh || item.title) + '" onclick="event.stopPropagation();fetchNewsSummary(this)">🧠 AI Digest</button><div class="news-ai-summary"><div class="news-ai-body"></div></div><div class="news-ai-error"></div></div>';
-      html += '</div></div>';
+      combinedItems.push({ type: 'news', data: item });
     });
-    html += '</div></div>';
-  } else {
-    html += '<div class="empty-state"><div class="empty-state-icon">\u{1F4ED}</div><p>\u66AB\u6642\u672A\u80FD\u7372\u53D6\u65B0\u805E</p></div>';
   }
-  html += "</div>";
-  html += '<div class="content-section section-videos">';
   if (videos && videos.length > 0) {
+    // Deduplicate by video ID
+    const seenVideoIds = new Set();
+    videos.filter(function(v) {
+      if (seenVideoIds.has(v.id)) return false;
+      seenVideoIds.add(v.id);
+      return true;
+    }).slice(0, 10).forEach(function(video) {
+      combinedItems.push({ type: 'video', data: video });
+    });
+  }
+  // Shuffle combined items (Fisher-Yates)
+  for (let i = combinedItems.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [combinedItems[i], combinedItems[j]] = [combinedItems[j], combinedItems[i]];
+  }
+  if (combinedItems.length > 0) {
     html += '<div class="summarized-section">';
     html += '<div class="summarized-grid">';
-    // Language filter: only English and Traditional Chinese
-    function isEnglishOrTraditionalChinese(title) {
-      if (!title) return false;
-      // Check for non-English, non-CJK characters
-      const hasInvalidChars = /[^\u0000-\u007f\u4e00-\u9fff\u3400-\u4dbf\u3100-\u312f\u31a0-\u31bf\u3000-\u303f\uff00-\uffef\u2000-\u206f\u0020-\u002f\u003a-\u0040\u005b-\u0060\u007b-\u007e\u00a0-\u00bf\u2010-\u201f\u2026\u3001-\u3003\u3008-\u3011\u3014-\u3015\uff08-\uff09\uff0c\uff0e\uff1a-\uff1b\uff1f-\uff20\uff3b-\uff3d\uff5b-\uff5d\uff5f-\uff60\uff61-\uff65]/.test(title);
-      if (hasInvalidChars) return false;
-      // Must have English or Traditional Chinese
-      const hasTraditionalChinese = /[\u4e00-\u9fff\u3400-\u4dbf\u3100-\u312f\u31a0-\u31bf]/.test(title);
-      const hasEnglish = /[a-zA-Z]/.test(title);
-      return hasEnglish || hasTraditionalChinese;
-    }
-    // Deduplicate by video ID at render time
-    const seenVideoIds = new Set();
-    const uniqueVideos = videos.filter(function(video) {
-      if (seenVideoIds.has(video.id)) return false;
-      seenVideoIds.add(video.id);
-      // Apply language filter
-      if (!isEnglishOrTraditionalChinese(video.title)) return false;
-      return true;
-    });
-    uniqueVideos.slice(0, 20).forEach(function(video) {
-      const videoId = video.id;
-      html += `<div class="summarized-card" onclick="openVideoModal('${videoId}')">`;
-      if (video.thumbnail) {
-        html += '<img class="summarized-image" src="' + escapeHtml(video.thumbnail) + '" alt="" onerror="this.style.display=\'none\'">';
+    combinedItems.forEach(function(item) {
+      if (item.type === 'video') {
+        const video = item.data;
+        html += `<div class="summarized-card" onclick="openVideoModal('${video.id}')">`;
+        if (video.thumbnail) {
+          html += '<img class="summarized-image" src="' + escapeHtml(video.thumbnail) + '" alt="" onerror="this.style.display=\'none\'">';
+        } else {
+          html += '<div class="summarized-image-placeholder">🎬</div>';
+        }
+        html += '<div class="summarized-content">';
+        html += '<div class="summarized-source">' + escapeHtml(video.channel) + ' · ' + escapeHtml(video.viewCount || '') + ' · ' + escapeHtml(video.duration || '') + '</div>';
+        html += '<div class="video-title">' + escapeHtml(video.title) + '</div>';
+        html += '<div class="video-ai-wrap"><button class="video-ai-btn" onclick="event.stopPropagation();fetchVideoSummary(this,\'' + video.id + '\')">🧠 AI Digest</button><div class="video-ai-summary" id="ai-summary-' + video.id + '"><div class="video-ai-body"></div></div><div class="video-ai-error" id="ai-error-' + video.id + '"></div></div>';
+        html += '</div></div>';
       } else {
-        html += '<div class="summarized-image-placeholder">🎬</div>';
+        const article = item.data;
+        html += `<div class="summarized-card" onclick="window.open('` + escapeHtml(article.url) + `', '_blank')">`;
+        // Image
+        if (article.ogImage) {
+          const safeUrl = encodeURI(article.ogImage).replace(/%25([0-9A-Fa-f]{2})/g, '%$1');
+          html += '<img class="summarized-image" src="' + safeUrl + '" alt="" onerror="this.style.display=\'none\'">';
+        } else {
+          const domain = (() => { try { return new URL(article.url).hostname; } catch(e) { return ''; } })();
+          html += '<div class="summarized-image-favicon"><img src="https://www.google.com/s2/favicons?domain=' + domain + '&sz=64" alt="" style="width:48px;height:48px;object-fit:contain" onerror="this.parentElement.className=\'summarized-image-placeholder\';this.outerHTML=\'📰\'"></div>';
+        }
+        html += '<div class="summarized-content">';
+        html += '<div class="summarized-source">' + escapeHtml(article.source ? article.source.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : 'AI News') + '</div>';
+        html += '<div class="summarized-title">' + escapeHtml(article.translatedTitle || article.titleZh || article.title) + '</div>';
+        if (article.summary) {
+          let cleanSummary = article.summary.replace(/^標題[：:]\s*[\s\S]*?(?=\n{2,}|$)/, '').trim();
+          cleanSummary = cleanSummary.replace(/\n?標題[：:]\s*.+?\n/, '\n').trim();
+          html += '<div class="summarized-text">' + escapeHtml(cleanSummary) + '</div>';
+        }
+        html += '<div class="news-ai-wrap"><button class="news-ai-btn" data-url="' + escapeHtml(article.url) + '" data-title="' + escapeHtml(article.translatedTitle || article.titleZh || article.title) + '" onclick="event.stopPropagation();fetchNewsSummary(this)">🧠 AI Digest</button><div class="news-ai-summary"><div class="news-ai-body"></div></div><div class="news-ai-error"></div></div>';
+        html += '</div></div>';
       }
-      html += '<div class="summarized-content">';
-      html += '<div class="summarized-source">' + escapeHtml(video.channel) + ' · ' + escapeHtml(video.viewCount) + ' views · ' + escapeHtml(video.duration) + '</div>';
-      html += '<div class="video-title">' + escapeHtml(video.title) + '</div>';
-      html += '<div class="video-ai-wrap"><button class="video-ai-btn" onclick="event.stopPropagation();fetchVideoSummary(this,\'' + videoId + '\')">&#x1F9E0; AI Digest</button><div class="video-ai-summary" id="ai-summary-' + videoId + '"><div class="video-ai-body"></div></div><div class="video-ai-error" id="ai-error-' + videoId + '"></div></div>';
-
-      html += '</div></div>';
     });
     html += '</div></div>';
   } else {
-    html += '<div class="empty-state"><div class="empty-state-icon">🎬</div><p>暫時未能獲取影片</p></div>';
+    html += '<div class="empty-state"><div class="empty-state-icon">📰</div><p>暫未能獲取內容</p></div>';
   }
   html += "</div>";
+
   html += '<div class="content-section section-tools">';
   if (tools.length > 0) {
     html += '<div class="card-grid">';
