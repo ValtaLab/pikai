@@ -2908,7 +2908,17 @@ var worker_default = {
             data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
             const ytCacheKey = 'youtube:videos:v25';
             const ytCached = await readYouTubeCache(env, ytCacheKey);
-            data.videos = ytCached ? ytCached.filteredVideos : [];
+            let videos = ytCached ? ytCached.filteredVideos : [];
+            // Translate any untranslated video titles (lazy backfill for old cache)
+            for (const v of videos) {
+              if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
+                try {
+                  const zh = await translateTitleWithWorkersAI(v.title, env);
+                  v.titleZh = zh || v.title;
+                } catch (_e) { v.titleZh = v.title; }
+              }
+            }
+            data.videos = videos;
           } catch (_e) { data.blogPosts = []; data.videos = []; }
           
           // Write to KV
