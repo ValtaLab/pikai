@@ -571,7 +571,6 @@ var NEWS_SOURCES = [
   { name: "Platformer", url: "https://www.platformer.news/feed" },
   { name: "The Algorithm", url: "https://www.technologyreview.com/topic/artificial-intelligence/rss/" },
   { name: "IEEE Robotics", url: "https://spectrum.ieee.org/feeds/topic/robotics.rss" },
-  { name: "arXiv Robotics", url: "https://export.arxiv.org/rss/cs.RO" },
   { name: "Robohub", url: "https://robohub.org/feed/" }
 ];
 var EXCLUDED_DOMAINS = [
