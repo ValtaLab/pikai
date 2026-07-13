@@ -2908,27 +2908,7 @@ var worker_default = {
             data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
             const ytCacheKey = 'youtube:videos:v25';
             const ytCached = await readYouTubeCache(env, ytCacheKey);
-            let videos = ytCached ? ytCached.filteredVideos : [];
-            // Batch-translate untranslated video titles via OpenRouter
-            const untranslated = videos.filter(v => !v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title));
-            if (untranslated.length > 0) {
-              try {
-                const titlesForBatch = untranslated.map((v, i) => `${i+1}. ${v.title}`).join('\n');
-                const prompt = `Translate these English video titles to Traditional Chinese (繁體中文). Return ONLY a JSON array of strings in the same order, one per line. No explanations.\n\n${titlesForBatch}`;
-                const result = await callOpenRouterFree(prompt, env.OPENROUTER_API_KEY, 300);
-                if (result.success && result.text) {
-                  const jsonMatch = result.text.match(/\[[\s\S]*?\]/);
-                  if (jsonMatch) {
-                    const translations = JSON.parse(jsonMatch[0]);
-                    untranslated.forEach((v, i) => {
-                      const zh = translations[i];
-                      if (zh && /[\u4e00-\u9fff]/.test(zh)) v.titleZh = zh;
-                    });
-                  }
-                }
-              } catch (_e) { /* retry next time */ }
-            }
-            data.videos = videos;
+            data.videos = ytCached ? ytCached.filteredVideos : [];
           } catch (_e) { data.blogPosts = []; data.videos = []; }
           
           // Write to KV
@@ -3138,6 +3118,14 @@ async function submitPost() {
       }
       const orRankings = await readORRankings(env);
       data2.orRankings = orRankings;
+      // Pre-translate video titles (Workers AI, parallel)
+      if (data2.videos && data2.videos.length) {
+        await Promise.all(data2.videos.map((async (v) => {
+          if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
+            try { var zh = await translateTitleWithWorkersAI(v.title, env); if (zh) v.titleZh = zh; } catch (e) {}
+          }
+        })));
+      }
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
@@ -3161,6 +3149,14 @@ async function submitPost() {
       data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
       const orRankings2 = await readORRankings(env);
       data2.orRankings = orRankings2;
+      // Pre-translate video titles before rendering
+      if (data2.videos && data2.videos.length) {
+        await Promise.all(data2.videos.map((async (v) => {
+          if (!v.titleZh && v.title && !/[一-鿿]/.test(v.title)) {
+            try { var zh2a = await translateTitleWithWorkersAI(v.title, env); if (zh2a) v.titleZh = zh2a; } catch (e) {}
+          }
+        })));
+      }
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
@@ -3172,6 +3168,14 @@ async function submitPost() {
       data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
       const orRankings3 = await readORRankings(env);
       data.orRankings = orRankings3;
+      // Pre-translate video titles before rendering
+      if (data.videos && data.videos.length) {
+        await Promise.all(data.videos.map((async (v) => {
+          if (!v.titleZh && v.title && !/[一-鿿]/.test(v.title)) {
+            try { var zh3 = await translateTitleWithWorkersAI(v.title, env); if (zh3) v.titleZh = zh3; } catch (e) {}
+          }
+        })));
+      }
       const html = generatePage(data);
       return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
     } catch (err) {
@@ -3660,7 +3664,8 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
         }
         html += '<div class="summarized-content">';
         html += '<div class="summarized-source">' + escapeHtml(video.channel) + ' · ' + escapeHtml(video.viewCount || '') + ' · ' + escapeHtml(video.duration || '') + '</div>';
-        html += '<div class="video-title">' + escapeHtml(video.titleZh || video.title) + '</div>';
+        const videoTitle = video.titleZh || video.title;
+        html += '<div class="video-title">' + escapeHtml(videoTitle) + '</div>';
         html += '<div class="video-ai-wrap"><button class="video-ai-btn" onclick="event.stopPropagation();fetchVideoSummary(this,\'' + video.id + '\')">🧠 AI Digest</button><div class="video-ai-summary" id="ai-summary-' + video.id + '"><div class="video-ai-body"></div></div><div class="video-ai-error" id="ai-error-' + video.id + '"></div></div>';
         html += '</div></div>';
       } else {
