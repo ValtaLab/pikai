@@ -1910,10 +1910,6 @@ async function fetchYouTubeVideos(env, force = false) {
       }
       try {
         let zh = await translateTitleWithWorkersAI(video.title, env);
-        if (!zh) {
-          const tRes = await translateWithOpenRouter(video.title, env);
-          zh = tRes.success ? tRes.text : '';
-        }
         if (zh) video.titleZh = zh;
         console.log(`[YouTube] Translated: "${video.title.substring(0,30)}..." → "${video.titleZh?.substring(0,30) || '(failed)'}..."`);
       } catch (_e) {
@@ -2320,36 +2316,7 @@ async function fetchNewsData(env) {
             }
 
             if (!result.summary) {
-              console.log(`[Workers AI] Failed, trying OpenRouter for: ${item.title.substring(0, 40)}...`);
-              const prompt = `標題：${item.title}\n內容：${item.summary || ''}\n\n請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。
-
-【標題翻譯原則】
-- 唔好直譯！要理解原文意思後，用自然嘅中文重新表達
-- 保留英文名稱（公司名、產品名、技術名詞）
-- 避免語序混亂、缺主語、缺謂語嘅問題
-
-格式：
-標題：[中文標題]
-總結：[總結內容]`;
-              const orResult = await callOpenRouterFree(prompt, env.OPENROUTER_API_KEY, 500);
-              if (orResult.success) {
-                const text = orResult.text;
-                const titleMatch = text.match(/標題[：:]\s*(.+?)(?:\n|$)/);
-                const summaryMatch = text.match(/總結[：:]\s*([\s\S]+)/);
-                const summary = summaryMatch ? summaryMatch[1].trim() : text.trim();
-                let translatedTitle = titleMatch ? titleMatch[1].trim() : '';
-                const badPatterns = [
-                  /唔再.*之間/, /之間中/, /就.*[冇无].*再/,
-                  /[冇无].*再.*之間/, /[是係].*[冇无].*再/,
-                ];
-                const hasBadPattern = badPatterns.some(p => p.test(translatedTitle));
-                if (hasBadPattern || translatedTitle.length > 40 || (translatedTitle.length > 0 && translatedTitle.length < 8)) {
-                  console.log(`[OpenRouter] Bad headline detected: "${translatedTitle}", using original`);
-                  translatedTitle = '';
-                }
-                result = { translatedTitle, summary, qualityFlag: 'openrouter' };
-                console.log(`[OpenRouter] Summarized: ${translatedTitle || item.title.substring(0, 40)}...`);
-              }
+              console.log(`[Workers AI] Summarize failed, no fallback: ${item.title.substring(0, 40)}...`);
             }
 
             if (result.summary && !/[\u4e00-\u9fff]/.test(result.summary)) {
@@ -2359,16 +2326,6 @@ async function fetchNewsData(env) {
               result = { ...result, translatedTitle: '' };
             }
 
-            if (!result.summary) {
-              const fallbackSource = (item.description || item.summary || item.title || '').substring(0, 200);
-              const tRes = await translateWithOpenRouter(item.title, env);
-              const sRes = await translateWithOpenRouter(fallbackSource, env);
-              const translatedTitle = tRes.success ? tRes.text : '';
-              const summary = sRes.success ? sRes.text : '';
-              if (summary && /[\u4e00-\u9fff]/.test(summary)) {
-                result = { translatedTitle, summary, qualityFlag: 'openrouter_translate' };
-              }
-            }
             // Ultimate fallback: use raw description extract as summary
             if (!result.summary) {
               const extract = (item.description || item.summary || '').substring(0, 150);
@@ -2388,12 +2345,7 @@ async function fetchNewsData(env) {
                   const zh = await translateTitleWithWorkersAI(item.title, env);
                   if (zh) translatedTitle = zh;
                 } catch (_e) {}
-                if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
-                  const tRes = await translateWithOpenRouter(item.title, env);
-                  if (tRes.success && tRes.text && /[\u4e00-\u9fff]/.test(tRes.text)) {
-                    translatedTitle = tRes.text;
-                  }
-                }
+
               }
               summarizedNews.push({
                 ...item,
@@ -2815,14 +2767,7 @@ var worker_default = {
                   if (result.translatedTitle && !/[\u4e00-\u9fff]/.test(result.translatedTitle)) result.translatedTitle = '';
                   
                   if (!result.summary) {
-                    const fallbackSource = (item.description || item.summary || item.title || '').substring(0, 200);
-                    const tRes = await translateWithOpenRouter(item.title, env);
-                    const sRes = await translateWithOpenRouter(fallbackSource, env);
-                    const translatedTitle = tRes.success ? tRes.text : '';
-                    const summary = sRes.success ? sRes.text : '';
-                    if (summary && /[\u4e00-\u9fff]/.test(summary)) {
-                      result = { translatedTitle, summary, qualityFlag: 'openrouter_translate' };
-                    }
+                    console.log(`[Ingest] Workers AI summarize failed, no fallback: ${item.title.substring(0, 40)}...`);
                   }
                   
                   if (!result.summary) {
@@ -2866,10 +2811,6 @@ var worker_default = {
                 if (!item.translatedTitle || !/[\u4e00-\u9fff]/.test(item.translatedTitle)) {
                   try {
                     let zh = await translateTitleWithWorkersAI(item.title, env);
-                    if (!zh) {
-                      const tRes = await translateWithOpenRouter(item.title, env);
-                      zh = tRes.success ? tRes.text : '';
-                    }
                     if (zh) item.translatedTitle = zh;
                   } catch (_e) {}
                 }
@@ -2884,10 +2825,6 @@ var worker_default = {
             if (!displayTitle || !/[\u4e00-\u9fff]/.test(displayTitle)) {
               try {
                 let zh = await translateTitleWithWorkersAI(article.title, env);
-                if (!zh) {
-                  const tRes = await translateWithOpenRouter(article.title, env);
-                  zh = tRes.success ? tRes.text : '';
-                }
                 if (zh) article.translatedTitle = zh;
               } catch (_e) {}
             }
