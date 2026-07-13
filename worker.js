@@ -1914,10 +1914,10 @@ async function fetchYouTubeVideos(env, force = false) {
           const tRes = await translateWithOpenRouter(video.title, env);
           zh = tRes.success ? tRes.text : '';
         }
-        video.titleZh = zh || video.title;
-        console.log(`[YouTube] Translated: "${video.title.substring(0,30)}..." → "${video.titleZh.substring(0,30)}..."`);
+        if (zh) video.titleZh = zh;
+        console.log(`[YouTube] Translated: "${video.title.substring(0,30)}..." → "${video.titleZh?.substring(0,30) || '(failed)'}..."`);
       } catch (_e) {
-        video.titleZh = video.title;
+        /* leave untranslated for next retry */
       }
     }
 
@@ -2913,9 +2913,13 @@ var worker_default = {
             for (const v of videos) {
               if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
                 try {
-                  const zh = await translateTitleWithWorkersAI(v.title, env);
-                  v.titleZh = zh || v.title;
-                } catch (_e) { v.titleZh = v.title; }
+                  let zh = await translateTitleWithWorkersAI(v.title, env);
+                  if (!zh) {
+                    const tRes = await translateWithOpenRouter(v.title, env);
+                    zh = tRes.success ? tRes.text : '';
+                  }
+                  if (zh) v.titleZh = zh;
+                } catch (_e) { /* leave untranslated for next retry */ }
               }
             }
             data.videos = videos;
