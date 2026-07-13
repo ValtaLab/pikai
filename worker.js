@@ -1706,7 +1706,14 @@ async function fetchYouTubeVideos(env, force = false) {
       ['UCcIXc5mJsHVYTZR1maL5l9w', 'DeepLearningAI'],
       ['UCtYLUTtgS3k1Fg4y5tAhLbw', 'StatQuest'],
       ['UCTMRxtyHoE3LPcrl-kT4AQQ', 'Google Cloud Tech'],
-      ['UC0m-80FnNY2Qb7obvTL_2fA', 'Microsoft Azure']
+      ['UC0m-80FnNY2Qb7obvTL_2fA', 'Microsoft Azure'],
+      // Robotics channels
+      ['UC7vVhkEfw4nOGp8TyDk7RcQ', 'Boston Dynamics'],
+      ['UCsMbp4V8oxzHCMdOUP-3oWw', 'Unitree Robotics'],
+      ['UCoHslVexR2q57wUoCRfdUsg', '1X'],
+      ['UCYlq-KmwPjc1DtsGmthFqSQ', 'Figure'],
+      ['UCN-StetwWuVYf-MU2_NVj4A', 'Agility Robotics'],
+      ['UCXNviQjBONXljxkJzNV-Xbw', 'The Robot Brains Podcast']
     ];
 
     console.log(`[YouTube] Checking ${CHANNELS.length} whitelist channels`);
