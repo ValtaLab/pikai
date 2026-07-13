@@ -3118,15 +3118,11 @@ async function submitPost() {
       }
       const orRankings = await readORRankings(env);
       data2.orRankings = orRankings;
-      // Pre-translate video titles (Workers AI first, OpenRouter fallback)
+      // Pre-translate video titles via Workers AI (fast, sub-second)
       if (data2.videos && data2.videos.length) {
         for (const v of data2.videos) {
           if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
-            try {
-              let zh = await translateTitleWithWorkersAI(v.title, env);
-              if (!zh) { const tr = await translateWithOpenRouter(v.title, env); if (tr.success) zh = tr.text; }
-              if (zh) v.titleZh = zh;
-            } catch (e) {}
+            try { const zh = await translateTitleWithWorkersAI(v.title, env); if (zh) v.titleZh = zh; } catch (e) {}
           }
         }
       }
@@ -3153,15 +3149,11 @@ async function submitPost() {
       data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
       const orRankings2 = await readORRankings(env);
       data2.orRankings = orRankings2;
-      // Pre-translate video titles (Workers AI first, OpenRouter fallback)
+      // Pre-translate video titles via Workers AI (fast, sub-second)
       if (data2.videos && data2.videos.length) {
         for (const v of data2.videos) {
           if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
-            try {
-              let zh = await translateTitleWithWorkersAI(v.title, env);
-              if (!zh) { const tr = await translateWithOpenRouter(v.title, env); if (tr.success) zh = tr.text; }
-              if (zh) v.titleZh = zh;
-            } catch (e) {}
+            try { const zh = await translateTitleWithWorkersAI(v.title, env); if (zh) v.titleZh = zh; } catch (e) {}
           }
         }
       }
@@ -3176,15 +3168,11 @@ async function submitPost() {
       data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
       const orRankings3 = await readORRankings(env);
       data.orRankings = orRankings3;
-      // Pre-translate video titles (Workers AI first, OpenRouter fallback)
+      // Pre-translate video titles via Workers AI (fast, sub-second)
       if (data.videos && data.videos.length) {
         for (const v of data.videos) {
           if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
-            try {
-              let zh = await translateTitleWithWorkersAI(v.title, env);
-              if (!zh) { const tr = await translateWithOpenRouter(v.title, env); if (tr.success) zh = tr.text; }
-              if (zh) v.titleZh = zh;
-            } catch (e) {}
+            try { const zh = await translateTitleWithWorkersAI(v.title, env); if (zh) v.titleZh = zh; } catch (e) {}
           }
         }
       }
