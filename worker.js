@@ -578,7 +578,22 @@ var NEWS_SOURCES = [
   { name: "Platformer", url: "https://www.platformer.news/feed" },
   { name: "The Algorithm", url: "https://www.technologyreview.com/topic/artificial-intelligence/rss/" },
   { name: "IEEE Robotics", url: "https://spectrum.ieee.org/feeds/topic/robotics.rss" },
-  { name: "Robohub", url: "https://robohub.org/feed/" }
+  { name: "Robohub", url: "https://robohub.org/feed/" },
+  // AI tutorial / educational sources
+  { name: "BAIR Blog", url: "https://bair.berkeley.edu/blog/feed.xml" },
+  { name: "PyTorch Blog", url: "https://pytorch.org/blog/feed/" },
+  { name: "Chip Huyen", url: "https://huyenchip.com/feed.xml" },
+  { name: "Google Research", url: "https://research.google/blog/rss/" },
+  { name: "NVIDIA Dev Blog", url: "https://developer.nvidia.com/blog/feed" },
+  { name: "AWS ML Blog", url: "https://aws.amazon.com/blogs/machine-learning/feed/" },
+  { name: "Roboflow Blog", url: "https://blog.roboflow.com/feed/" },
+  { name: "Papers With Code", url: "https://paperswithcode.com/feed/" },
+  { name: "DataTalks Club", url: "https://datatalks.club/feed.xml" },
+  { name: "Anyscale Blog", url: "https://www.anyscale.com/blog/feed" },
+  { name: "Meta Engineering", url: "https://engineering.fb.com/feed/" },
+  { name: "Gradient Science", url: "https://gradientscience.org/feed.xml" },
+  { name: "Real Python", url: "https://realpython.com/atom.xml" },
+  { name: "ML Nuggets", url: "https://www.machinelearningnuggets.com/feed/" }
 ];
 var EXCLUDED_DOMAINS = [
   "sina.com",
@@ -1242,7 +1257,11 @@ async function fetchAINews() {
     "VentureBeat AI", "IEEE Spectrum AI", "Towards Data Science",
     "Artificial Intelligence News", "Ars Technica", "Hugging Face",
     "The Decoder", "MarkTechPost", "Google AI Blog", "Kilo Blog",
-    "Wired AI", "Semianalysis", "Ahead of AI", "The Algorithm"
+    "Wired AI", "Semianalysis", "Ahead of AI", "The Algorithm",
+    "BAIR Blog", "PyTorch Blog", "Chip Huyen", "Google Research",
+    "NVIDIA Dev Blog", "AWS ML Blog", "Roboflow Blog",
+    "Papers With Code", "DataTalks Club", "Anyscale Blog",
+    "Meta Engineering", "Gradient Science", "Real Python", "ML Nuggets"
   ]);
   
   // Parallel fetch all sources - limit 10 per source for diversity
@@ -1707,6 +1726,17 @@ async function fetchYouTubeVideos(env, force = false) {
       ['UCtYLUTtgS3k1Fg4y5tAhLbw', 'StatQuest'],
       ['UCTMRxtyHoE3LPcrl-kT4AQQ', 'Google Cloud Tech'],
       ['UC0m-80FnNY2Qb7obvTL_2fA', 'Microsoft Azure'],
+      // AI tutorial channels
+      ['UCfzlCWGWYFIQi7jB3HjP4Lg', 'Sentdex'],
+      ['UCHqRxy1Cb6T9i5DE5hEZ41Q', 'Nicholas Renotte'],
+      ['UCr4cA3DoP3QsNB5iY5hWq8g', 'Tech With Tim'],
+      ['UCtatfZMf-8d3Q1Ja3_xRmVg', 'AssemblyAI'],
+      ['UCpMpGq47P4lR4oSjcP_jj0w', 'Arxiv Insights'],
+      ['UCkz6p2TqAtR4JoNpGJ6cB8Q', 'Aladdin Persson'],
+      ['UCIqOVe3Nb2A1xQ1Pv-3MF3g', 'CodeEmporium'],
+      ['UCfGGKhcT2-NSSI0h_1LB3pQ', 'Sam Witteveen'],
+      ['UCpE0CgWjD3R2dOguFfDhXAg', 'James Briggs'],
+      ['UC6V4lMvKtLp9lrB7xZOJh5g', 'Patrick Loeber'],
       // Robotics channels
       ['UC7vVhkEfw4nOGp8TyDk7RcQ', 'Boston Dynamics'],
       ['UCsMbp4V8oxzHCMdOUP-3oWw', 'Unitree Robotics'],

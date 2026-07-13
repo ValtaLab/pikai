@@ -79,6 +79,21 @@ NEWS_SOURCES = [
     {"name": "Dev.to AI", "url": "https://dev.to/feed/tag/ai"},
     {"name": "Analytics Vidhya", "url": "https://www.analyticsvidhya.com/blog/feed/"},
     {"name": "Machine Learning Mastery", "url": "https://machinelearningmastery.com/blog/feed/"},
+    # AI tutorial / educational sources
+    {"name": "BAIR Blog", "url": "https://bair.berkeley.edu/blog/feed.xml"},
+    {"name": "PyTorch Blog", "url": "https://pytorch.org/blog/feed/"},
+    {"name": "Chip Huyen", "url": "https://huyenchip.com/feed.xml"},
+    {"name": "Google Research", "url": "https://research.google/blog/rss/"},
+    {"name": "NVIDIA Dev Blog", "url": "https://developer.nvidia.com/blog/feed"},
+    {"name": "AWS ML Blog", "url": "https://aws.amazon.com/blogs/machine-learning/feed/"},
+    {"name": "Roboflow Blog", "url": "https://blog.roboflow.com/feed/"},
+    {"name": "Papers With Code", "url": "https://paperswithcode.com/feed/"},
+    {"name": "DataTalks Club", "url": "https://datatalks.club/feed.xml"},
+    {"name": "Anyscale Blog", "url": "https://www.anyscale.com/blog/feed"},
+    {"name": "Meta Engineering", "url": "https://engineering.fb.com/feed/"},
+    {"name": "Gradient Science", "url": "https://gradientscience.org/feed.xml"},
+    {"name": "Real Python", "url": "https://realpython.com/atom.xml"},
+    {"name": "ML Nuggets", "url": "https://www.machinelearningnuggets.com/feed/"},
 ]
 
 AI_ONLY_SOURCES = {
@@ -89,7 +104,12 @@ AI_ONLY_SOURCES = {
     "Wired AI", "Semianalysis", "Ahead of AI", "The Algorithm",
     "KDnuggets", "FreeCodeCamp AI", "Dev.to AI", "Analytics Vidhya",
     "Machine Learning Mastery", "IEEE Robotics", "Robohub",
-    "Robotics & Auto News", "ScienceDaily Robotics"
+    "Robotics & Auto News", "ScienceDaily Robotics",
+    "BAIR Blog", "PyTorch Blog", "Chip Huyen", "Google Research",
+    "NVIDIA Dev Blog", "AWS ML Blog", "Roboflow Blog",
+    "Papers With Code", "DataTalks Club", "Anyscale Blog",
+    "Meta Engineering", "Gradient Science", "Real Python",
+    "ML Nuggets"
 }
 
 # AI keyword filter - same as worker.js parseRSS
