@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3
 """
 PikAI Feeder - fetch RSS on Pi 5 (no subrequest limit), POST to Worker for AI + OG + KV
 Run via cron: */30 * * * * /usr/bin/python3 /home/blackpi/ai-news-webapp/pikai-feeder.py
