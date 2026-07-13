@@ -3118,16 +3118,6 @@ async function submitPost() {
       }
       const orRankings = await readORRankings(env);
       data2.orRankings = orRankings;
-      // Pre-translate up to 3 video titles per page load (Workers AI)
-      if (data2.videos && data2.videos.length) {
-        let translated = 0;
-        for (const v of data2.videos) {
-          if (translated >= 3) break;
-          if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
-            try { const zh = await translateTitleWithWorkersAI(v.title, env); if (zh) { v.titleZh = zh; translated++; } } catch (e) {}
-          }
-        }
-      }
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
@@ -3151,16 +3141,6 @@ async function submitPost() {
       data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
       const orRankings2 = await readORRankings(env);
       data2.orRankings = orRankings2;
-      // Pre-translate up to 3 video titles per page load (Workers AI)
-      if (data2.videos && data2.videos.length) {
-        let translated = 0;
-        for (const v of data2.videos) {
-          if (translated >= 3) break;
-          if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
-            try { const zh = await translateTitleWithWorkersAI(v.title, env); if (zh) { v.titleZh = zh; translated++; } } catch (e) {}
-          }
-        }
-      }
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
@@ -3172,16 +3152,6 @@ async function submitPost() {
       data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
       const orRankings3 = await readORRankings(env);
       data.orRankings = orRankings3;
-      // Pre-translate up to 3 video titles per page load (Workers AI)
-      if (data.videos && data.videos.length) {
-        let translated = 0;
-        for (const v of data.videos) {
-          if (translated >= 3) break;
-          if (!v.titleZh && v.title && !/[\u4e00-\u9fff]/.test(v.title)) {
-            try { const zh = await translateTitleWithWorkersAI(v.title, env); if (zh) { v.titleZh = zh; translated++; } } catch (e) {}
-          }
-        }
-      }
       const html = generatePage(data);
       return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
     } catch (err) {
