@@ -2715,7 +2715,7 @@ var worker_default = {
           const summarizeCount = Math.min(withImages.length, topN);
           const summarizedNews = [];
           const BATCH_SIZE = 5;
-          const BATCH_DELAY = 500;
+          const BATCH_DELAY = 200;
           
           for (let batchStart = 0; batchStart < summarizeCount; batchStart += BATCH_SIZE) {
             const batchEnd = Math.min(batchStart + BATCH_SIZE, summarizeCount);
