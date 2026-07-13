@@ -879,7 +879,7 @@ async function translateTitleWithWorkersAI(title, env) {
 英文：I paid for Claude, ChatGPT, and Perplexity for a month but only one of them deserves my $20
 中文：實測比較：Claude、ChatGPT、Perplexity 邊個值得付費`;
 
-    const response = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8', {
+    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: `標題：${title}` }
