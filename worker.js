@@ -3141,7 +3141,7 @@ async function fetchORRankings(env) {
     const usageSorted = Object.entries(usageMap)
       .map(([k, v]) => ({ ...v, slug: k }))
       .sort((a, b) => (b.prompt + b.completion) - (a.prompt + a.completion));
-    const usageRanking = usageSorted.slice(0, 15).map((v, i) => {
+    const usageRanking = usageSorted.slice(0, 10).map((v, i) => {
       const total = v.prompt + v.completion;
       let change = '—';
       if (v.change != null) {
@@ -3178,7 +3178,7 @@ async function fetchORRankings(env) {
       }
     }
     intelList.sort((a, b) => b.intel - a.intel);
-    const intelRanking = intelList.slice(0, 15).map((v, i) => ({
+    const intelRanking = intelList.slice(0, 10).map((v, i) => ({
       rank: i + 1,
       name: v.name,
       intel: v.intel.toFixed(1),
