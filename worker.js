@@ -1689,12 +1689,18 @@ async function fetchYouTubeVideos(env, force = false) {
     const cachedVideos = await readYouTubeCache(env, cacheKey);
     if (cachedVideos && cachedVideos.cachedAt) {
       const age = Date.now() - new Date(cachedVideos.cachedAt).getTime();
-      if (!force && age < 12 * 60 * 60 * 1000) {
+      const cacheTTL = 24 * 60 * 60 * 1000; // 24 hours
+      if (!force && age < cacheTTL) {
         if (cachedVideos.filteredVideos.length > 0) {
           console.log(`[YouTube] Cache hit: ${cachedVideos.rawVideos.length} videos, ${cachedVideos.filteredVideos.length} after whitelist filter`);
           return cachedVideos.filteredVideos;
         }
-        console.log(`[YouTube] Cache hit but no usable videos (${cachedVideos.rawVideos.length} raw), refetching live`);
+        // Cache has 0 videos — don't refetch if cache is fresh (< 6h) to avoid quota burn loop
+        if (age < 6 * 60 * 60 * 1000) {
+          console.log(`[YouTube] Cache has 0 videos but is fresh (${Math.round(age/3600000)}h old), skipping refetch to save quota`);
+          return [];
+        }
+        console.log(`[YouTube] Cache has 0 videos, age ${Math.round(age/3600000)}h, refetching`);
       }
     }
 
@@ -1806,36 +1812,31 @@ async function fetchYouTubeVideos(env, force = false) {
           const ids = (playlistData.items || [])
             .filter(item => {
               const itemChannelId = item.snippet?.channelId;
-              if (itemChannelId !== channelId) {
-                console.log(`[YouTube] REJECTED playlist result from wrong channel: "${item.snippet?.channelTitle}" (${itemChannelId}) !== expected "${channelName}" (${channelId})`);
-                return false;
-              }
+              if (itemChannelId !== channelId) return false;
               const publishedAt = item.snippet?.publishedAt;
-              if (publishedAt && new Date(publishedAt) < new Date(fortyEightHoursAgo)) {
-                return false;
-              }
+              if (publishedAt && new Date(publishedAt) < new Date(fortyEightHoursAgo)) return false;
               return true;
             })
             .map(item => item.snippet?.resourceId?.videoId)
             .filter(Boolean);
-          console.log(`[YouTube] Channel "${channelName}" returned ${ids.length} videos from uploads playlist`);
+          if (ids.length > 0) console.log(`[YouTube] "${channelName}" → ${ids.length} videos`);
           return ids;
         } else {
-          const errText = await playlistRes.text();
-          console.log(`[YouTube] Channel "${channelName}" playlist failed: ${playlistRes.status} - ${errText.substring(0,200)}`);
+          const errText = await playlistRes.text().catch(() => '');
+          console.log(`[YouTube] "${channelName}" failed: ${playlistRes.status} - ${errText.substring(0,150)}`);
           return [];
         }
       } catch (e) {
-        console.log(`[YouTube] Channel "${channelName}" error: ${e.message}`);
+        console.log(`[YouTube] "${channelName}" error: ${e.message}`);
         return [];
       }
     }
 
-    // Search channels in parallel batches of 5
-    const batchSize = 5;
+    // Search channels in parallel batches of 8 (stay under Worker subrequest limits)
+    const batchSize = 8;
     for (let i = 0; i < CHANNELS.length; i += batchSize) {
       const batch = CHANNELS.slice(i, i + batchSize);
-      const batchResults = await Promise.all(batch.map(([id, name]) => searchChannelVideos(id, name, 5)));
+      const batchResults = await Promise.all(batch.map(([id, name]) => searchChannelVideos(id, name, 3)));
       batchResults.forEach(ids => allVideoIds.push(...ids));
     }
 
