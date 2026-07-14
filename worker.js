@@ -3142,9 +3142,9 @@ async function submitPost() {
         data2.videos = filterAllowedYouTubeVideos(data2.videos, "[YouTube] NEWS-DATA");
         console.log(`[YouTube] Falling back to news-data videos: ${data2.videos.length} usable videos`);
       } else {
-        console.log(`[YouTube] No usable cached videos found, attempting live fetch for page render`);
-        data2.videos = await fetchYouTubeVideos(env);
-        console.log(`[YouTube] Live fetch fallback returned ${data2.videos.length} videos`);
+        console.log(`[YouTube] No usable cached videos found, skipping for page render (cron-only fetch)`);
+        // Never live-fetch YouTube on page load — only cron triggers YouTube API calls
+        data2.videos = [];
       }
       const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
       data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
@@ -3153,15 +3153,13 @@ async function submitPost() {
       const html2 = generatePage(data2);
         return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
-      const newsData = await fetchNewsData(env);
-      const toolsData = await fetchToolsData(env);
-      const videosData = await fetchYouTubeVideos(env);
-      const data = { ...newsData, tools: toolsData, videos: videosData };
-      const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
-      data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
+      // KV cache miss — show empty state instead of live fetch
+      // Data is only refreshed by cron at 08:00 and 18:00 HKT
+      console.log(`[Page] No cached news-data found, showing empty state`);
+      const emptyData = { news: [], tools: [], videos: [], blogPosts: [], updatedAt: new Date().toISOString(), summarizedNews: [] };
       const orRankings3 = await readORRankings(env);
-      data.orRankings = orRankings3;
-      const html = generatePage(data);
+      emptyData.orRankings = orRankings3;
+      const html = generatePage(emptyData);
       return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
     } catch (err) {
       console.error("Fetch error:", err.message, err.stack);
