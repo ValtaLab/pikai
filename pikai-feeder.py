@@ -18,7 +18,7 @@ import threading
 import random
 
 WORKER_URL = "https://pikai.isearover.workers.dev/api/ingest"
-TOP_N = 100  # Number of articles to process
+TOP_N = 50  # Reduced from 100 — Worker AI wall-clock budget (2026-07-14)
 
 # Exact copy from worker.js
 NEWS_SOURCES = [
@@ -114,17 +114,20 @@ AI_ONLY_SOURCES = {
 }
 
 # AI keyword filter - same as worker.js parseRSS
+# Tightened 2026-07-14: removed broad tokens (model/training/algorithm/agent) that matched coupons/Windows/deals
 AI_KEYWORDS = [
     r'\bAI\b', r'\bartificial intelligence\b', r'\bLLM\b', r'\blarge language model',
     r'\bmachine learning\b', r'\bdeep learning\b', r'\bneural network',
     r'\bGPT\b', r'\bClaude\b', r'\bGemini\b', r'\bOpenAI\b', r'\bAnthropic\b',
-    r'\bChatGPT\b', r'\btransformer\b', r'\bdiffusion\b', r'\bRAG\b',
-    r'\bagent\b', r'\brobot\b', r'\bautonomous\b', r'\bself-driving\b',
-    r'\bCopilot\b', r'\bCodex\b', r'\bMistral\b', r'\bLlama\b',
-    r'\bcomputer vision\b', r'\bNLP\b', r'\bnatural language',
-    r'\bgenerative\b', r'\bfine.?tun', r'\bembedding\b',
-    r'\bquantiz\w+\b', r'\binference\b', r'\bmultimodal\b',
-    r'\btraining\b', r'\bmodel\b', r'\bdataset\b', r'\balgorithm\b',
+    r'\bChatGPT\b', r'\btransformer\b', r'\bdiffusion model\b', r'\bRAG\b',
+    r'\bAI agent\b', r'\bAI agents\b', r'\bagentic\b', r'\brobotics\b', r'\bhumanoid robot',
+    r'\bautonomous vehicle\b', r'\bself-driving\b',
+    r'\bCopilot\b', r'\bCodex\b', r'\bMistral\b', r'\bLlama\b', r'\bDeepSeek\b', r'\bQwen\b',
+    r'\bcomputer vision\b', r'\bNLP\b', r'\bnatural language processing',
+    r'\bgenerative AI\b', r'\bgenAI\b', r'\bfine-?tun', r'\bembedding model\b',
+    r'\bquantiz\w+\b', r'\binference engine\b', r'\bmultimodal\b',
+    r'\blanguage model\b', r'\bfoundation model\b', r'\bdataset\b',
+    r'\bPerplexity\b', r'\bMidjourney\b', r'\bStable Diffusion\b', r'\bHugging Face\b',
 ]
 
 def is_ai_related(title, description, is_ai_only):
@@ -333,7 +336,7 @@ def main():
     })
     
     try:
-        resp = urlopen(req, timeout=180)
+        resp = urlopen(req, timeout=300)
         result = json.loads(resp.read().decode('utf-8'))
         
         elapsed = time.time() - start

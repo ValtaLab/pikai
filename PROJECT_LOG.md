@@ -57,6 +57,18 @@ last_update_by: HermesBPi
 
 ## 📝 變更歷史
 
+### 2026-07-14 23:42 | 修復中英混雜新聞卡片
+**Type**: Fix
+**Summary**: Qwen3 /no_think + 中文 quality gate + feeder 超時/關鍵字收緊
+**Details**:
+  - 根因：Qwen3 thinking 模式令 content=null → 英文 raw fallback 寫入 KV（非 Workers AI quota）
+  - Qwen3 所有 call 加 `/no_think`；`extractWorkersAIText` 支援 choices[].message.content
+  - KV 寫入要求足夠中文標題（cron / trigger-news / ingest），唔再計英文 raw extract 為 summarized
+  - 唔再用英文 title 兜底；無中文標題嘅文章 skip
+  - feeder: TOP_N 100→50，POST timeout 180→300s，收緊 AI keywords（移除 model/training/algorithm 等過寬詞）
+**Version**: (pending push)
+
+
 ### 2026-06-30 | Minimum article threshold guard + Pi cron fix
 **版本:** 88449db
 - **Type**: Fix

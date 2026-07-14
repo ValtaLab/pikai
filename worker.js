@@ -60,6 +60,54 @@ async function readYouTubeCache(env, cacheKey = "youtube:videos:v25") {
 }
 __name(readYouTubeCache, "readYouTubeCache");
 
+
+// === PikAI AI helpers (2026-07-14): Qwen3 /no_think + response extract + Chinese gate ===
+const QWEN3_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8';
+// Qwen3 is a thinking model; without /no_think it spends max_tokens on reasoning and returns content:null
+const QWEN3_NO_THINK_PREFIX = '/no_think\n';
+
+function extractWorkersAIText(response) {
+  if (response == null) return '';
+  if (typeof response === 'string') return response;
+  if (typeof response.response === 'string') return response.response;
+  if (response.response != null && typeof response.response === 'object') {
+    try {
+      if (typeof response.response.content === 'string') return response.response.content;
+      return JSON.stringify(response.response);
+    } catch (_e) {}
+  }
+  // OpenAI-style chat completion (Workers AI REST / some bindings)
+  const msg = response.choices && response.choices[0] && response.choices[0].message;
+  if (msg) {
+    if (typeof msg.content === 'string' && msg.content.trim()) return msg.content;
+    // Do NOT fall back to reasoning/reasoning_content — that is chain-of-thought, not the answer
+  }
+  if (Array.isArray(response)) {
+    try { return JSON.stringify(response); } catch (_e) { return ''; }
+  }
+  if (typeof response === 'object') {
+    try { return JSON.stringify(response); } catch (_e) { return ''; }
+  }
+  return '';
+}
+__name(extractWorkersAIText, 'extractWorkersAIText');
+
+function countChineseTitles(articles) {
+  if (!articles || !articles.length) return 0;
+  return articles.filter(a => {
+    const t = (a && (a.translatedTitle || a.titleZh || '')) + '';
+    return /[\u4e00-\u9fff]/.test(t);
+  }).length;
+}
+__name(countChineseTitles, 'countChineseTitles');
+
+function hasEnoughChineseQuality(news, summarizedNews, minArticles = 15, minChinese = 10) {
+  const n = (news && news.length) || 0;
+  const cn = Math.max(countChineseTitles(news), countChineseTitles(summarizedNews));
+  return n >= minArticles && cn >= minChinese;
+}
+__name(hasEnoughChineseQuality, 'hasEnoughChineseQuality');
+
 // Cloudflare Workers AI - Summarize and translate news with Llama 3.1
 // Structured JSON output with quality validation
 async function batchSummarizeWithWorkersAI(articles, env) {
@@ -102,36 +150,30 @@ async function batchSummarizeWithWorkersAI(articles, env) {
 【輸出格式】
 嚴格輸出 JSON 陣列，順序同上，每人一條。`;
 
-    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
+    const response = await env.AI.run(QWEN3_MODEL, {
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent }
+        { role: 'system', content: QWEN3_NO_THINK_PREFIX + systemPrompt },
+        { role: 'user', content: QWEN3_NO_THINK_PREFIX + userContent }
       ],
       max_tokens: 6000,
       temperature: 0.3
     });
     clearTimeout(timeoutId);
     
-    // Parse response
+    // Parse response (supports binding {response} and OpenAI choices[].message.content)
     let parsedArray = null;
+    const rawText = extractWorkersAIText(response);
     
-    // Try direct array
     if (Array.isArray(response)) {
       parsedArray = response;
-    } else if (response && response.response) {
-      if (Array.isArray(response.response)) {
-        parsedArray = response.response;
-      } else if (typeof response.response === 'string') {
-        const m = response.response.match(/\[[\s\S]*?\]/);
-        if (m) try { parsedArray = JSON.parse(m[0]); } catch(e) {}
-      } else if (typeof response.response === 'object') {
-        const m = JSON.stringify(response.response).match(/\[[\s\S]*?\]/);
-        if (m) try { parsedArray = JSON.parse(m[0]); } catch(e) {}
-      }
-    } else if (typeof response === 'string') {
-      const m = response.match(/\[[\s\S]*?\]/);
+    } else if (response && Array.isArray(response.response)) {
+      parsedArray = response.response;
+    }
+    if (!parsedArray && rawText) {
+      const m = rawText.match(/\[[\s\S]*?\]/);
       if (m) try { parsedArray = JSON.parse(m[0]); } catch(e) {}
-    } else if (response && typeof response === 'object') {
+    }
+    if (!parsedArray && response && typeof response === 'object') {
       const m = JSON.stringify(response).match(/\[[\s\S]*?\]/);
       if (m) try { parsedArray = JSON.parse(m[0]); } catch(e) {}
     }
@@ -182,10 +224,10 @@ async function batchTranslateTitlesWithWorkersAI(titles, env) {
     let userContent = '將以下英文標題翻譯成繁體中文，只輸出 JSON 陣列，格式：["中文標題1", "中文標題2", ...]\n\n';
     titles.forEach((t, i) => { userContent += `${i+1}. ${t}\n`; });
     
-    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
+    const response = await env.AI.run(QWEN3_MODEL, {
       messages: [
-        { role: 'system', content: '你係專業翻譯。將每個英文標題翻譯成自然通順嘅繁體中文（15-30字）。保留公司名、產品名、技術名詞。只輸出 JSON 陣列。' },
-        { role: 'user', content: userContent }
+        { role: 'system', content: QWEN3_NO_THINK_PREFIX + '你係專業翻譯。將每個英文標題翻譯成自然通順嘅繁體中文（15-30字）。保留公司名、產品名、技術名詞。只輸出 JSON 陣列。' },
+        { role: 'user', content: QWEN3_NO_THINK_PREFIX + userContent }
       ],
       max_tokens: 2000,
       temperature: 0.3
@@ -193,8 +235,8 @@ async function batchTranslateTitlesWithWorkersAI(titles, env) {
     clearTimeout(timeoutId);
     
     let parsed = null;
-    const text = typeof response === 'string' ? response : response?.response;
-    if (typeof text === 'string') {
+    const text = extractWorkersAIText(response);
+    if (typeof text === 'string' && text) {
       const m = text.match(/\[[\s\S]*?\]/);
       if (m) try { parsed = JSON.parse(m[0]); } catch(e) {}
     }
@@ -255,10 +297,10 @@ async function summarizeWithWorkersAI(title, description, env) {
   "confidence": 8
 }`;
 
-    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
+    const response = await env.AI.run(QWEN3_MODEL, {
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `標題：${title}\n內容：${description}` }
+        { role: 'system', content: QWEN3_NO_THINK_PREFIX + systemPrompt },
+        { role: 'user', content: QWEN3_NO_THINK_PREFIX + `標題：${title}\n內容：${description}` }
       ],
       max_tokens: 800,
       temperature: 0.3
@@ -945,24 +987,17 @@ async function translateTitleWithWorkersAI(title, env) {
 英文：I paid for Claude, ChatGPT, and Perplexity for a month but only one of them deserves my $20
 中文：實測比較：Claude、ChatGPT、Perplexity 邊個值得付費`;
 
-    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
+    const response = await env.AI.run(QWEN3_MODEL, {
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `標題：${title}` }
+        { role: 'system', content: QWEN3_NO_THINK_PREFIX + systemPrompt },
+        { role: 'user', content: QWEN3_NO_THINK_PREFIX + `標題：${title}` }
       ],
-      max_tokens: 200,
+      max_tokens: 300,
       temperature: 0.3
     });
     clearTimeout(timeoutId);
     
-    let text = '';
-    if (typeof response === 'string') {
-      text = response;
-    } else if (response && response.response) {
-      text = typeof response.response === 'string' ? response.response : JSON.stringify(response.response);
-    } else if (response && typeof response === 'object') {
-      text = JSON.stringify(response);
-    }
+    let text = extractWorkersAIText(response);
     
     text = text.trim();
     
@@ -1239,7 +1274,7 @@ function parseRSS(xmlText, sourceName, format = "rss", isAIOOnly = false) {
   const isAtom = format === "atom";
   const itemRegex = isAtom ? /<entry[^>]*>([\s\S]*?)<\/entry>/gi : /<item[^>]*>([\s\S]*?)<\/item>/gi;
   let match;
-  const AI_KEYWORDS = ["AI", "Artificial Intelligence", "Machine Learning", "Deep Learning", "Neural Network", "LLM", "ChatGPT", "OpenAI", "GPT", "Gemini", "Claude", "Anthropic", "Stable Diffusion", "Midjourney", "AI Model", "Transformer", "Diffusion", "MCP", "Agent", "Copilot", "Cursor", "Perplexity", "Llama", "Mistral", "Qwen", "DeepSeek", "Hugging Face", "Reinforcement Learning", "Computer Vision", "NLP", "RAG", "Fine-tuning", "Prompt Engineering", "Generative AI", "Multimodal", "Inference", "Token", "Embedding", "Vector", "Dataset", "Benchmark", "GPU", "CUDA", "PyTorch", "TensorFlow", "JAX", "ONNX", "Quantization", "Pruning", "Distillation", "Synthetic Data", "AI Safety", "Alignment", "Hallucination", "Reasoning", "Chain of Thought", "Function Calling", "Tool Use", "Code Generation", "Text-to-Image", "Text-to-Video", "Voice Clone", "TTS", "ASR", "OCR", "Cognitive", "Autonomous", "Robotics", "Brain-Computer", "Neuromorphic", "Federated Learning", "Edge AI", "On-device", "Local LLM", "Open Source AI", "Foundation Model", "MoE", "Mixture of Experts", "State Space", "Mamba", "Diffusion Model", "Flow Matching", "Consistency Model", "VAE", "GAN", "Autoencoder", "Self-supervised", "Contrastive Learning", "Instruction Tuning", "RLHF", "DPO", "GRPO", "PPO", "LoRA", "QLoRA", "Adapter", "Prefix Tuning", "BitNet", "GGUF", "AWQ", "GPTQ", "ExLlama", "vLLM", "TGI", "Triton", "OpenVINO", "TensorRT", "CoreML", "WebNN", "WebGPU", "WASM", "WASI", "Serverless", "Inference API", "Model Hub", "Weights", "Checkpoint", "Safetensors", "Pickle", "ONNX Runtime", "DirectML", "ROCm", "OneAPI", "SYCL", "OpenCL", "Metal", "Vulkan", "SPIR-V", "IREE", "MLIR", "XLA", "JAX", "Flax", "Haiku", "Equinox", "Keras", "FastAI", "Lightning", "Accelerate", "Transformers", "Diffusers", "Tokenizers", "Datasets", "Evaluate", "PEFT", "TRL", "Unsloth", "Axolotl", "LlamaFactory", "Ollama", "LM Studio", "GPT4All", "LocalAI", "Text Generation", "Inference Engine", "Model Serving", "Batch Inference", "Streaming", "SSE", "WebSocket", "gRPC", "REST API", "GraphQL", "OpenAPI", "Swagger", "FastAPI", "Flask", "Django", "Express", "Next.js", "Nuxt", "SvelteKit", "Astro", "Remix", "SolidStart", "Qwik", "Fresh", "Hono", "Elysia", "Nitro", "Vite", "Rollup", "esbuild", "SWC", "Turbopack", "Bun", "Deno", "Node.js", "Python", "Rust", "Go", "Zig", "Mojo", "Julia", "R", "MATLAB", "Scala", "Kotlin", "Swift", "Dart", "Flutter", "React Native", "Expo", "Ionic", "Capacitor", "Tauri", "Electron", "Wails", "Fyne", "GTK", "Qt", "SDL", "Raylib", "Bevy", "Godot", "Unity", "Unreal", "Blender", "Maya", "Houdini", "Cinema 4D", "After Effects", "Premiere", "DaVinci", "Final Cut", "OBS", "Streamlabs", "FFmpeg", "GStreamer", "WebRTC", "RTMP", "HLS", "DASH", "WebCodecs", "MediaRecorder", "Canvas", "WebGL", "WebGPU", "Three.js", "Babylon.js", "PlayCanvas", "Phaser", "PixiJS", "Regl", "LumaGL", "deck.gl", "kepler.gl", "D3.js", "Observable", "Vega", "Vega-Lite", "Altair", "Plotly", "Bokeh", "Matplotlib", "Seaborn", "ggplot2", "tidyverse", "pandas", "NumPy", "SciPy", "scikit-learn", "XGBoost", "LightGBM", "CatBoost", "Optuna", "Ray", "Dask", "Modin", "Polars", "DuckDB", "SQLite", "PostgreSQL", "MySQL", "MongoDB", "Redis", "Elasticsearch", "OpenSearch", "Solr", "Meilisearch", "Typesense", "Pinecone", "Weaviate", "Milvus", "Qdrant", "Chroma", "pgvector", "Faiss", "Annoy", "HNSW", "ScaNN", "Voyager", "USearch", "Marqo", "Jina", "DocArray", "LangChain", "LlamaIndex", "Haystack", "Semantic Kernel", "AutoGen", "CrewAI", "LangGraph", "Flowise", "n8n", "Make", "Zapier", "IFTTT", "Pipedream", "Temporal", "Cadence", "Camunda", "Airflow", "Prefect", "Dagster", "Mage", "Kestra", "Orchestrator", "Metaflow", "Kubeflow", "MLflow", "Weights \u0026 Biases", "Comet", "Neptune", "DVC", "CML", "Great Expectations", "Pandera", "Evidently", "WhyLabs", "Arize", "Fiddler", "Truera", "Arthur", "Aporia", "Mona", "Whylabs", "Evidently AI", "Deepchecks", "TensorBoard", "WandB", "ClearML", "Polyaxon", "Seldon", "KServe", "BentoML", "Cog", "Banana", "Replicate", "Modal", "Beam", "RunPod", "Vast.ai", "Lambda Labs", "CoreWeave", "Paperspace", "Jarvislabs", "Lightning AI", "Saturn Cloud", "Coiled", "Anyscale", "Ray Serve", "Ray Train", "Ray Tune", "Ray RLlib", "Ray Data", "Spark", "Flink", "Kafka", "Pulsar", "NATS", "RabbitMQ", "ZeroMQ", "Redis Streams", "AWS Kinesis", "Google Pub/Sub", "Azure Event Hubs", "Cloudflare Queues", "SQS", "SNS", "EventBridge", "Step Functions", "Logic Apps", "Power Automate", "Zapier", "Make", "n8n", "Huginn", "Node-RED", "Home Assistant", "OpenHAB", "HomeKit", "Matter", "Thread", "Zigbee", "Z-Wave", "Bluetooth LE", "UWB", "NFC", "RFID", "LoRa", "Sigfox", "NB-IoT", "LTE-M", "5G", "WiFi 6", "WiFi 7", "Matter", "ESP32", "Raspberry Pi", "Arduino", "MicroPython", "CircuitPython", "TinyML", "Edge Impulse", "Arduino Cloud", "PlatformIO", "Zephyr", "FreeRTOS", "RIOT", "Contiki", "TinyOS", "NuttX", "ChibiOS", "RT-Thread", "Micropython", "Lua", "JavaScript", "TypeScript", "WASM", "WASI", "AssemblyScript", "Grain", "Motoko", "Rust", "TinyGo", "Nim", "Crystal", "V", "Odin", "Jai", "Zig", "Carbon", "Cpp2", "Circle", "D", "Nim", "Crystal", "V", "Odin", "Jai", "Zig", "Carbon", "Cpp2", "Circle"];
+  const AI_KEYWORDS = ["AI", "Artificial Intelligence", "Machine Learning", "Deep Learning", "Neural Network", "LLM", "ChatGPT", "OpenAI", "GPT", "Gemini", "Claude", "Anthropic", "Stable Diffusion", "Midjourney", "AI Model", "Transformer", "MCP", "AI Agent", "AI Agents", "Agentic", "Copilot", "Cursor", "Perplexity", "Llama", "Mistral", "Qwen", "DeepSeek", "Hugging Face", "Reinforcement Learning", "Computer Vision", "NLP", "RAG", "Fine-tuning", "Prompt Engineering", "Generative AI", "Multimodal", "AI Inference", "Embedding Model", "Vector Database", "Dataset", "Benchmark", "GPU", "CUDA", "PyTorch", "TensorFlow", "JAX", "ONNX", "Quantization", "Pruning", "Distillation", "Synthetic Data", "AI Safety", "Alignment", "Hallucination", "AI Reasoning", "Chain of Thought", "Function Calling", "Tool Use", "Code Generation", "Text-to-Image", "Text-to-Video", "Voice Clone", "TTS", "ASR", "OCR", "Autonomous Vehicle", "Autonomous Agent", "Robotics", "Brain-Computer", "Neuromorphic", "Federated Learning", "Edge AI", "On-device", "Local LLM", "Open Source AI", "Foundation Model", "MoE", "Mixture of Experts", "State Space", "Mamba", "Diffusion Model", "Flow Matching", "Consistency Model", "VAE", "GAN", "Autoencoder", "Self-supervised", "Contrastive Learning", "Instruction Tuning", "RLHF", "DPO", "GRPO", "PPO", "LoRA", "QLoRA", "Adapter", "Prefix Tuning", "BitNet", "GGUF", "AWQ", "GPTQ", "ExLlama", "vLLM", "TGI", "Triton", "OpenVINO", "TensorRT", "CoreML", "WebNN", "WebGPU", "WASM", "WASI", "Serverless", "Inference API", "Model Hub", "Weights", "Checkpoint", "Safetensors", "Pickle", "ONNX Runtime", "DirectML", "ROCm", "OneAPI", "SYCL", "OpenCL", "Metal", "Vulkan", "SPIR-V", "IREE", "MLIR", "XLA", "JAX", "Flax", "Haiku", "Equinox", "Keras", "FastAI", "Lightning", "Accelerate", "Transformers", "Diffusers", "Tokenizers", "Datasets", "Evaluate", "PEFT", "TRL", "Unsloth", "Axolotl", "LlamaFactory", "Ollama", "LM Studio", "GPT4All", "LocalAI", "Text Generation", "Inference Engine", "Model Serving", "Batch Inference", "Streaming", "SSE", "WebSocket", "gRPC", "REST API", "GraphQL", "OpenAPI", "Swagger", "FastAPI", "Flask", "Django", "Express", "Next.js", "Nuxt", "SvelteKit", "Astro", "Remix", "SolidStart", "Qwik", "Fresh", "Hono", "Elysia", "Nitro", "Vite", "Rollup", "esbuild", "SWC", "Turbopack", "Bun", "Deno", "Node.js", "Python", "Rust", "Go", "Zig", "Mojo", "Julia", "R", "MATLAB", "Scala", "Kotlin", "Swift", "Dart", "Flutter", "React Native", "Expo", "Ionic", "Capacitor", "Tauri", "Electron", "Wails", "Fyne", "GTK", "Qt", "SDL", "Raylib", "Bevy", "Godot", "Unity", "Unreal", "Blender", "Maya", "Houdini", "Cinema 4D", "After Effects", "Premiere", "DaVinci", "Final Cut", "OBS", "Streamlabs", "FFmpeg", "GStreamer", "WebRTC", "RTMP", "HLS", "DASH", "WebCodecs", "MediaRecorder", "Canvas", "WebGL", "WebGPU", "Three.js", "Babylon.js", "PlayCanvas", "Phaser", "PixiJS", "Regl", "LumaGL", "deck.gl", "kepler.gl", "D3.js", "Observable", "Vega", "Vega-Lite", "Altair", "Plotly", "Bokeh", "Matplotlib", "Seaborn", "ggplot2", "tidyverse", "pandas", "NumPy", "SciPy", "scikit-learn", "XGBoost", "LightGBM", "CatBoost", "Optuna", "Ray", "Dask", "Modin", "Polars", "DuckDB", "SQLite", "PostgreSQL", "MySQL", "MongoDB", "Redis", "Elasticsearch", "OpenSearch", "Solr", "Meilisearch", "Typesense", "Pinecone", "Weaviate", "Milvus", "Qdrant", "Chroma", "pgvector", "Faiss", "Annoy", "HNSW", "ScaNN", "Voyager", "USearch", "Marqo", "Jina", "DocArray", "LangChain", "LlamaIndex", "Haystack", "Semantic Kernel", "AutoGen", "CrewAI", "LangGraph", "Flowise", "n8n", "Make", "Zapier", "IFTTT", "Pipedream", "Temporal", "Cadence", "Camunda", "Airflow", "Prefect", "Dagster", "Mage", "Kestra", "Orchestrator", "Metaflow", "Kubeflow", "MLflow", "Weights \u0026 Biases", "Comet", "Neptune", "DVC", "CML", "Great Expectations", "Pandera", "Evidently", "WhyLabs", "Arize", "Fiddler", "Truera", "Arthur", "Aporia", "Mona", "Whylabs", "Evidently AI", "Deepchecks", "TensorBoard", "WandB", "ClearML", "Polyaxon", "Seldon", "KServe", "BentoML", "Cog", "Banana", "Replicate", "Modal", "Beam", "RunPod", "Vast.ai", "Lambda Labs", "CoreWeave", "Paperspace", "Jarvislabs", "Lightning AI", "Saturn Cloud", "Coiled", "Anyscale", "Ray Serve", "Ray Train", "Ray Tune", "Ray RLlib", "Ray Data", "Spark", "Flink", "Kafka", "Pulsar", "NATS", "RabbitMQ", "ZeroMQ", "Redis Streams", "AWS Kinesis", "Google Pub/Sub", "Azure Event Hubs", "Cloudflare Queues", "SQS", "SNS", "EventBridge", "Step Functions", "Logic Apps", "Power Automate", "Zapier", "Make", "n8n", "Huginn", "Node-RED", "Home Assistant", "OpenHAB", "HomeKit", "Matter", "Thread", "Zigbee", "Z-Wave", "Bluetooth LE", "UWB", "NFC", "RFID", "LoRa", "Sigfox", "NB-IoT", "LTE-M", "5G", "WiFi 6", "WiFi 7", "Matter", "ESP32", "Raspberry Pi", "Arduino", "MicroPython", "CircuitPython", "TinyML", "Edge Impulse", "Arduino Cloud", "PlatformIO", "Zephyr", "FreeRTOS", "RIOT", "Contiki", "TinyOS", "NuttX", "ChibiOS", "RT-Thread", "Micropython", "Lua", "JavaScript", "TypeScript", "WASM", "WASI", "AssemblyScript", "Grain", "Motoko", "Rust", "TinyGo", "Nim", "Crystal", "V", "Odin", "Jai", "Zig", "Carbon", "Cpp2", "Circle", "D", "Nim", "Crystal", "V", "Odin", "Jai", "Zig", "Carbon", "Cpp2", "Circle"];
   while ((match = itemRegex.exec(xmlText)) !== null) {
     const itemXml = match[1];
     const title = parseItemXml(itemXml, "title");
@@ -2384,34 +2419,33 @@ async function fetchNewsData(env) {
               result = { ...result, translatedTitle: '' };
             }
 
-            // Ultimate fallback: use raw description extract as summary
-            if (!result.summary) {
-              const extract = (item.description || item.summary || '').substring(0, 150);
-              if (extract.length > 20) {
-                result = {
-                  translatedTitle: result.translatedTitle || '',
-                  summary: extract,
-                  qualityFlag: 'raw_extract'
-                };
-              }
+            // Do NOT use English raw extract as a successful summary — it pollutes KV with EN cards
+            // Require Chinese title and/or Chinese summary before accepting
+            if (result.summary && !/[\u4e00-\u9fff]/.test(result.summary)) {
+              result = { ...result, summary: '', qualityFlag: result.qualityFlag === 'ok' ? 'non_chinese_summary' : result.qualityFlag };
             }
 
-            if (result.summary || (result.translatedTitle && /[\u4e00-\u9fff]/.test(result.translatedTitle))) {
-              let translatedTitle = result.translatedTitle || '';
-              if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
-                try {
-                  const zh = await translateTitleWithWorkersAI(item.title, env);
-                  if (zh) translatedTitle = zh;
-                } catch (_e) {}
-
-              }
+            let translatedTitle = result.translatedTitle || '';
+            if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
+              try {
+                const zh = await translateTitleWithWorkersAI(item.title, env);
+                if (zh && /[\u4e00-\u9fff]/.test(zh)) translatedTitle = zh;
+                else translatedTitle = '';
+              } catch (_e) { translatedTitle = ''; }
+            }
+            const summaryOk = result.summary && /[\u4e00-\u9fff]/.test(result.summary);
+            const titleOk = translatedTitle && /[\u4e00-\u9fff]/.test(translatedTitle);
+            // Only accept articles with Chinese title (summary preferred but title is required for display)
+            if (titleOk) {
               summarizedNews.push({
                 ...item,
-                translatedTitle: translatedTitle || item.title,
-                summary: result.summary || '',
+                translatedTitle,
+                summary: summaryOk ? result.summary : '',
                 summarizedAt: new Date().toISOString()
               });
-              await setCachedArticle(item.url, { ...result, translatedTitle }, env);
+              await setCachedArticle(item.url, { ...result, translatedTitle, summary: summaryOk ? result.summary : '' }, env);
+            } else {
+              console.log(`[fetchNewsData] Skip non-Chinese article: ${item.title.substring(0, 40)}...`);
             }
           }
         } catch (e) {
@@ -2427,20 +2461,21 @@ async function fetchNewsData(env) {
     }
     console.log(`[fetchNewsData] Summarized ${summarizedNews.length}/${summarizeCount} articles (cached hits saved quota)`);
     
-    // Merge: use summarized articles first, then fill remaining slots from deduped
+    // Merge: use summarized (Chinese) articles first, then fill only if Chinese title available
     const newsToPick = [...summarizedNews];
     if (newsToPick.length < MAX_ARTICLES && deduped.length > 0) {
       const usedUrls = new Set(newsToPick.map(a => a.url));
       for (const item of deduped) {
         if (!usedUrls.has(item.url) && newsToPick.length < MAX_ARTICLES) {
-          // Ensure item has at least a Chinese title or original title
           if (!item.translatedTitle || !/[\u4e00-\u9fff]/.test(item.translatedTitle)) {
             try {
               const zh = await translateTitleWithWorkersAI(item.title, env);
-              if (zh) item.translatedTitle = zh;
+              if (zh && /[\u4e00-\u9fff]/.test(zh)) item.translatedTitle = zh;
             } catch (_e) {}
           }
-          newsToPick.push(item);
+          if (item.translatedTitle && /[\u4e00-\u9fff]/.test(item.translatedTitle)) {
+            newsToPick.push(item);
+          }
         }
       }
     }
@@ -2491,36 +2526,26 @@ var worker_default = {
     data.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
     const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
     data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-    // Minimum article threshold: don't overwrite KV with incomplete data
-    // Require both: enough total articles AND enough AI-summarized ones
-    const newHasEnough = newsData.news && newsData.news.length >= 15 &&
-      newsData.summarizedNews && newsData.summarizedNews.length >= 5;
-    // Also check: don't replace good data with worse data
+    // Chinese quality gate: don't overwrite KV with English-heavy / incomplete data
+    // Must have enough articles AND enough Chinese titles (raw EN extract no longer counts)
+    const newCn = Math.max(countChineseTitles(newsData.news), countChineseTitles(newsData.summarizedNews));
+    const newHasEnough = hasEnoughChineseQuality(newsData.news, newsData.summarizedNews, 15, 10);
     let oldHasChinese = false;
-    if (!newHasEnough) {
-      try {
-        const oldRaw = await env.AI_NEWS_KV.get("news-data");
-        if (oldRaw) {
-          const oldData = JSON.parse(oldRaw);
-          const oldCn = (oldData.summarizedNews || []).filter(s =>
-            s.translatedTitle && /[\u4e00-\u9fff]/.test(s.translatedTitle)
-          ).length;
-          oldHasChinese = oldCn >= 10;
-          if (oldHasChinese) {
-            console.log(`[Cron] KEPT old KV: new has ${newsData.summarizedNews?.length || 0} summarized, old had ${oldCn} Chinese`);
-          }
-        }
-      } catch (_e) {}
-    }
-    if (newHasEnough || oldHasChinese) {
-      if (newHasEnough) {
-        await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
-        console.log(`[Cron] KV updated: ${data.news.length} news, ${data.tools.length} tools`);
-      } else {
-        console.log(`[Cron] SKIPPED KV write: kept existing data (${newsData.summarizedNews?.length || 0} new vs good old data)`);
+    let oldCn = 0;
+    try {
+      const oldRaw = await env.AI_NEWS_KV.get("news-data");
+      if (oldRaw) {
+        const oldData = JSON.parse(oldRaw);
+        oldCn = Math.max(countChineseTitles(oldData.news), countChineseTitles(oldData.summarizedNews));
+        oldHasChinese = oldCn >= 10;
       }
+    } catch (_e) {}
+    // Only write if new data is Chinese-quality AND not much worse than old
+    if (newHasEnough && (!oldHasChinese || newCn >= Math.min(10, oldCn))) {
+      await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+      console.log(`[Cron] KV updated: ${data.news.length} news, ${newCn} Chinese, ${data.tools.length} tools`);
     } else {
-      console.log(`[Cron] SKIPPED KV write: only ${data.news?.length || 0} articles (min 15 required)`);
+      console.log(`[Cron] SKIPPED KV write: newCn=${newCn} newLen=${newsData.news?.length || 0} oldCn=${oldCn}`);
     }
     // Also refresh rankings on the midnight cron
     if (cronExpr === '0 0 * * *') {
@@ -2826,44 +2851,45 @@ var worker_default = {
                   
                   if (!result.summary) {
                     console.log(`[Ingest] Workers AI failed, trying OpenRouter: ${item.title.substring(0, 40)}...`);
-                    const prompt = `標題：${item.title}\n內容：${item.summary || ''}\n\n請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。\n\n格式：\n標題：[中文標題]\n總結：[總結內容]`;
+                    const prompt = `/no_think\n標題：${item.title}\n內容：${item.summary || ''}\n\n請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。\n\n格式：\n標題：[中文標題]\n總結：[總結內容]`;
                     const orResult = await callOpenRouterFree(prompt, env.OPENROUTER_API_KEY, 500);
                     if (orResult.success) {
                       const text = orResult.text;
-                      const titleMatch = text.match(/標題[：:]\\s*(.+?)(?:\\n|$)/);
-                      const summaryMatch = text.match(/總結[：:]\\s*([\\s\\S]+)/);
-                      const summary = summaryMatch ? summaryMatch[1].trim() : text.trim();
+                      const titleMatch = text.match(/標題[：:]\s*(.+?)(?:\n|$)/);
+                      const summaryMatch = text.match(/總結[：:]\s*([\s\S]+)/);
+                      let summary = summaryMatch ? summaryMatch[1].trim() : text.trim();
                       let translatedTitle = titleMatch ? titleMatch[1].trim() : '';
                       if (translatedTitle.length > 40 || (translatedTitle.length > 0 && translatedTitle.length < 8)) {
                         translatedTitle = '';
                       }
+                      if (summary && !/[\u4e00-\u9fff]/.test(summary)) summary = '';
+                      if (translatedTitle && !/[\u4e00-\u9fff]/.test(translatedTitle)) translatedTitle = '';
                       result = { translatedTitle, summary, qualityFlag: 'openrouter' };
                       console.log(`[OpenRouter] Summarized: ${translatedTitle || item.title.substring(0, 40)}...`);
                     }
                   }
                   
-                  if (!result.summary) {
-                    const extract = (item.description || item.summary || '').substring(0, 150);
-                    if (extract.length > 20) {
-                      result = { translatedTitle: result.translatedTitle || '', summary: extract, qualityFlag: 'raw_extract' };
-                    }
+                  // No English raw_extract fallback — skip if not Chinese
+                  let translatedTitle = result.translatedTitle || '';
+                  if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
+                    try {
+                      const zh = await translateTitleWithWorkersAI(item.title, env);
+                      if (zh && /[\u4e00-\u9fff]/.test(zh)) translatedTitle = zh;
+                      else translatedTitle = '';
+                    } catch (_e) { translatedTitle = ''; }
                   }
-                  
-                  if (result.summary || (result.translatedTitle && /[\u4e00-\u9fff]/.test(result.translatedTitle))) {
-                    let translatedTitle = result.translatedTitle || '';
-                    if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
-                      try {
-                        const zh = await translateTitleWithWorkersAI(item.title, env);
-                        if (zh) translatedTitle = zh;
-                      } catch (_e) {}
-                    }
+                  const summaryOk = result.summary && /[\u4e00-\u9fff]/.test(result.summary);
+                  const titleOk = translatedTitle && /[\u4e00-\u9fff]/.test(translatedTitle);
+                  if (titleOk) {
                     summarizedNews.push({
                       ...item,
-                      translatedTitle: translatedTitle || item.title,
-                      summary: result.summary || '',
+                      translatedTitle,
+                      summary: summaryOk ? result.summary : '',
                       summarizedAt: new Date().toISOString()
                     });
-                    await setCachedArticle(item.url, { ...result, translatedTitle }, env);
+                    await setCachedArticle(item.url, { ...result, translatedTitle, summary: summaryOk ? result.summary : '' }, env);
+                  } else {
+                    console.log(`[Ingest] Skip non-Chinese: ${item.title.substring(0, 40)}...`);
                   }
                 }
               } catch (e) { console.log(`[Ingest] Batch summarize failed: ${e.message}`); }
@@ -2874,19 +2900,22 @@ var worker_default = {
             }
           }
           
-          // Merge summarized + remaining
+          // Merge summarized + remaining (only keep Chinese titles)
           const newsToPick = [...summarizedNews];
           if (newsToPick.length < topN) {
             const usedUrls = new Set(newsToPick.map(a => a.url));
             for (const item of withImages) {
               if (!usedUrls.has(item.url) && newsToPick.length < topN) {
-                if (!item.translatedTitle || !/[\u4e00-\u9fff]/.test(item.translatedTitle)) {
+                if (!item.translatedTitle || !/[一-鿿]/.test(item.translatedTitle)) {
                   try {
                     let zh = await translateTitleWithWorkersAI(item.title, env);
-                    if (zh) item.translatedTitle = zh;
+                    if (zh && /[一-鿿]/.test(zh)) item.translatedTitle = zh;
                   } catch (_e) {}
                 }
-                newsToPick.push(item);
+                // Skip articles that still have no Chinese title
+                if (item.translatedTitle && /[一-鿿]/.test(item.translatedTitle)) {
+                  newsToPick.push(item);
+                }
               }
             }
           }
@@ -2920,17 +2949,33 @@ var worker_default = {
             data.videos = ytCached ? ytCached.filteredVideos : [];
           } catch (_e) { data.blogPosts = []; data.videos = []; }
           
-          // Write to KV
-          await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
-          
-          console.log(`[/api/ingest] Done: ${newsToPick.length} articles, ${summarizedNews.length} summarized, ${ogFetchCount} OG fetches`);
+          // Chinese quality gate before KV write
+          const newCn = Math.max(countChineseTitles(newsToPick), countChineseTitles(summarizedNews));
+          let oldCn = 0;
+          try {
+            const oldRaw = await env.AI_NEWS_KV.get("news-data");
+            if (oldRaw) {
+              const oldData = JSON.parse(oldRaw);
+              oldCn = Math.max(countChineseTitles(oldData.news), countChineseTitles(oldData.summarizedNews));
+            }
+          } catch (_e) {}
+          const newHasEnough = hasEnoughChineseQuality(newsToPick, summarizedNews, 10, 8);
+          let kvWritten = false;
+          if (newHasEnough && (oldCn < 8 || newCn >= Math.min(8, oldCn))) {
+            await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+            kvWritten = true;
+            console.log(`[/api/ingest] KV written: ${newsToPick.length} articles, ${newCn} Chinese, ${summarizedNews.length} summarized, ${ogFetchCount} OG`);
+          } else {
+            console.log(`[/api/ingest] SKIPPED KV write: newCn=${newCn} len=${newsToPick.length} oldCn=${oldCn}`);
+          }
           
           return new Response(JSON.stringify({
             success: true,
             articlesProcessed: newsToPick.length,
             summarizedCount: summarizedNews.length,
+            chineseCount: newCn,
             ogFetches: ogFetchCount,
-            kvWritten: true
+            kvWritten
           }, null, 2), { headers: { "Content-Type": "application/json" } });
         } catch (e) {
           return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
@@ -2944,41 +2989,32 @@ var worker_default = {
           data.updatedAt = new Date().toISOString();
           const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
           data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-          // Minimum article threshold: don't overwrite KV with incomplete data
-          const newHasEnough = newsData.news && newsData.news.length >= 15 &&
-            newsData.summarizedNews && newsData.summarizedNews.length >= 5;
-          let oldHasChinese = false;
-          if (!newHasEnough) {
-            try {
-              const oldRaw = await env.AI_NEWS_KV.get("news-data");
-              if (oldRaw) {
-                const oldData = JSON.parse(oldRaw);
-                const oldCn = (oldData.summarizedNews || []).filter(s =>
-                  s.translatedTitle && /[\u4e00-\u9fff]/.test(s.translatedTitle)
-                ).length;
-                oldHasChinese = oldCn >= 10;
-                if (oldHasChinese) {
-                  console.log(`[/trigger-news] KEPT old KV: new has ${newsData.summarizedNews?.length || 0} summarized, old had ${oldCn} Chinese`);
-                }
-              }
-            } catch (_e) {}
-          }
-          if (newHasEnough || oldHasChinese) {
-            if (newHasEnough) {
-              await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
-              console.log(`[/trigger-news] KV updated: ${data.news.length} news`);
-            } else {
-              console.log(`[/trigger-news] SKIPPED KV write: kept existing data`);
+          // Chinese quality gate (same as cron)
+          const newCn = Math.max(countChineseTitles(newsData.news), countChineseTitles(newsData.summarizedNews));
+          const newHasEnough = hasEnoughChineseQuality(newsData.news, newsData.summarizedNews, 15, 10);
+          let oldCn = 0;
+          try {
+            const oldRaw = await env.AI_NEWS_KV.get("news-data");
+            if (oldRaw) {
+              const oldData = JSON.parse(oldRaw);
+              oldCn = Math.max(countChineseTitles(oldData.news), countChineseTitles(oldData.summarizedNews));
             }
+          } catch (_e) {}
+          let kvWritten = false;
+          if (newHasEnough && (oldCn < 10 || newCn >= Math.min(10, oldCn))) {
+            await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+            kvWritten = true;
+            console.log(`[/trigger-news] KV updated: ${data.news.length} news, ${newCn} Chinese`);
           } else {
-            console.log(`[/trigger-news] SKIPPED KV write: only ${data.news?.length || 0} articles (min 15 required)`);
+            console.log(`[/trigger-news] SKIPPED KV write: newCn=${newCn} newLen=${newsData.news?.length || 0} oldCn=${oldCn}`);
           }
           return new Response(JSON.stringify({
             success: true,
             newsCount: data.news.length,
             toolsCount: data.tools.length,
+            chineseCount: newCn,
             updatedAt: data.updatedAt,
-            kvWritten: newHasEnough
+            kvWritten
           }, null, 2), { headers: { "Content-Type": "application/json" } });
         } catch (e) {
           return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
