@@ -2937,7 +2937,7 @@ var worker_default = {
       }
       if (url.pathname === "/trigger-youtube") {
         try {
-          const videos = await fetchYouTubeVideos(env);
+          const videos = await fetchYouTubeVideos(env, true);
           return new Response(JSON.stringify({ success: true, count: videos.length }), { headers: { "Content-Type": "application/json" } });
         } catch (e) {
           return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json" } });
