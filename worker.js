@@ -2359,7 +2359,21 @@ async function fetchNewsData(env) {
             }
 
             if (!result.summary) {
-              console.log(`[Workers AI] Summarize failed, no fallback: ${item.title.substring(0, 40)}...`);
+              console.log(`[Workers AI] Failed, trying OpenRouter for: ${item.title.substring(0, 40)}...`);
+              const prompt = `標題：${item.title}\n內容：${item.summary || ''}\n\n請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。\n\n格式：\n標題：[中文標題]\n總結：[總結內容]`;
+              const orResult = await callOpenRouterFree(prompt, env.OPENROUTER_API_KEY, 500);
+              if (orResult.success) {
+                const text = orResult.text;
+                const titleMatch = text.match(/標題[：:]\\s*(.+?)(?:\\n|$)/);
+                const summaryMatch = text.match(/總結[：:]\\s*([\\s\\S]+)/);
+                const summary = summaryMatch ? summaryMatch[1].trim() : text.trim();
+                let translatedTitle = titleMatch ? titleMatch[1].trim() : '';
+                if (translatedTitle.length > 40 || (translatedTitle.length > 0 && translatedTitle.length < 8)) {
+                  translatedTitle = '';
+                }
+                result = { translatedTitle, summary, qualityFlag: 'openrouter' };
+                console.log(`[OpenRouter] Summarized: ${translatedTitle || item.title.substring(0, 40)}...`);
+              }
             }
 
             if (result.summary && !/[\u4e00-\u9fff]/.test(result.summary)) {
@@ -2810,7 +2824,21 @@ var worker_default = {
                   if (result.translatedTitle && !/[\u4e00-\u9fff]/.test(result.translatedTitle)) result.translatedTitle = '';
                   
                   if (!result.summary) {
-                    console.log(`[Ingest] Workers AI summarize failed, no fallback: ${item.title.substring(0, 40)}...`);
+                    console.log(`[Ingest] Workers AI failed, trying OpenRouter: ${item.title.substring(0, 40)}...`);
+                    const prompt = `標題：${item.title}\n內容：${item.summary || ''}\n\n請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。\n\n格式：\n標題：[中文標題]\n總結：[總結內容]`;
+                    const orResult = await callOpenRouterFree(prompt, env.OPENROUTER_API_KEY, 500);
+                    if (orResult.success) {
+                      const text = orResult.text;
+                      const titleMatch = text.match(/標題[：:]\\s*(.+?)(?:\\n|$)/);
+                      const summaryMatch = text.match(/總結[：:]\\s*([\\s\\S]+)/);
+                      const summary = summaryMatch ? summaryMatch[1].trim() : text.trim();
+                      let translatedTitle = titleMatch ? titleMatch[1].trim() : '';
+                      if (translatedTitle.length > 40 || (translatedTitle.length > 0 && translatedTitle.length < 8)) {
+                        translatedTitle = '';
+                      }
+                      result = { translatedTitle, summary, qualityFlag: 'openrouter' };
+                      console.log(`[OpenRouter] Summarized: ${translatedTitle || item.title.substring(0, 40)}...`);
+                    }
                   }
                   
                   if (!result.summary) {
