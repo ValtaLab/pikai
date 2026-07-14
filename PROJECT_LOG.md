@@ -57,6 +57,15 @@ last_update_by: HermesBPi
 
 ## 📝 變更歷史
 
+### 2026-07-14 23:57 | 修復 YouTube 0 影片（subrequest 爆限）
+**Type**: Fix
+**Summary**: 唔係 quota — Free plan 50 subrequest 上限令 details call throw，外層 catch 回 []
+**Details**:
+  - wrangler tail: 已拎到 65 video IDs，之後 "Too many subrequests" → return []
+  - 頻道 fetch cap 45 + 日輪轉；details 失敗改用 playlist meta fallback
+  - 同步更新 YOUTUBE_API_KEY secret（本地 key 驗證有效）
+
+
 ### 2026-07-14 23:42 | 修復中英混雜新聞卡片
 **Type**: Fix
 **Summary**: Qwen3 /no_think + 中文 quality gate + feeder 超時/關鍵字收緊
@@ -66,7 +75,8 @@ last_update_by: HermesBPi
   - KV 寫入要求足夠中文標題（cron / trigger-news / ingest），唔再計英文 raw extract 為 summarized
   - 唔再用英文 title 兜底；無中文標題嘅文章 skip
   - feeder: TOP_N 100→50，POST timeout 180→300s，收緊 AI keywords（移除 model/training/algorithm 等過寬詞）
-**Version**: (pending push)
+**Version**: 4eb510a
+**Verify**: 50/50 中文標題+摘要, junk=0, health=4eb510a
 
 
 ### 2026-06-30 | Minimum article threshold guard + Pi cron fix

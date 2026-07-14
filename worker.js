@@ -1832,10 +1832,20 @@ async function fetchYouTubeVideos(env, force = false) {
       ['UCXNviQjBONXljxkJzNV-Xbw', 'The Robot Brains Podcast']
     ];
 
-    console.log(`[YouTube] Checking ${CHANNELS.length} whitelist channels`);
+    // CF Free plan: max 50 subrequests/invocation. Cap channel playlist fetches so
+    // playlistItems (≤45) + videos.list (1) stays under the limit. Without this,
+    // details call throws "Too many subrequests" and the outer catch returns [] —
+    // wiping 60+ already-found IDs (2026-07-14 incident).
+    const MAX_CHANNEL_FETCHES = 45;
+    // Rotate starting offset by UTC day so all channels get coverage over a week
+    const dayOffset = (Math.floor(Date.now() / 86400000) * 7) % CHANNELS.length;
+    const rotated = CHANNELS.slice(dayOffset).concat(CHANNELS.slice(0, dayOffset));
+    const channelsToFetch = rotated.slice(0, MAX_CHANNEL_FETCHES);
+    console.log(`[YouTube] Checking ${channelsToFetch.length}/${CHANNELS.length} whitelist channels (subrequest budget, offset=${dayOffset})`);
 
     const searchTimeout = 8000;
     const allVideoIds = [];
+    const playlistMeta = {}; // videoId → {title, channel, channelId, publishedAt, thumbnail}
 
     async function searchChannelVideos(channelId, channelName, maxResults) {
       const uploadsPlaylistId = 'UU' + channelId.slice(2);
@@ -1844,16 +1854,22 @@ async function fetchYouTubeVideos(env, force = false) {
         const playlistRes = await fetchWithTimeout(playlistUrl, { headers: { 'Referer': 'https://pikai.isearover.workers.dev/' } }, searchTimeout);
         if (playlistRes.ok) {
           const playlistData = await playlistRes.json();
-          const ids = (playlistData.items || [])
-            .filter(item => {
-              const itemChannelId = item.snippet?.channelId;
-              if (itemChannelId !== channelId) return false;
-              const publishedAt = item.snippet?.publishedAt;
-              if (publishedAt && new Date(publishedAt) < new Date(fortyEightHoursAgo)) return false;
-              return true;
-            })
-            .map(item => item.snippet?.resourceId?.videoId)
-            .filter(Boolean);
+          const ids = [];
+          for (const item of (playlistData.items || [])) {
+            const sn = item.snippet || {};
+            if (sn.channelId !== channelId) continue;
+            if (sn.publishedAt && new Date(sn.publishedAt) < new Date(fortyEightHoursAgo)) continue;
+            const vid = sn.resourceId?.videoId;
+            if (!vid) continue;
+            ids.push(vid);
+            playlistMeta[vid] = {
+              title: sn.title || '',
+              channel: sn.channelTitle || channelName,
+              channelId: sn.channelId || channelId,
+              publishedAt: sn.publishedAt || '',
+              thumbnail: sn.thumbnails?.high?.url || sn.thumbnails?.medium?.url || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`
+            };
+          }
           if (ids.length > 0) console.log(`[YouTube] "${channelName}" → ${ids.length} videos`);
           return ids;
         } else {
@@ -1867,10 +1883,10 @@ async function fetchYouTubeVideos(env, force = false) {
       }
     }
 
-    // Search channels in parallel batches of 8 (stay under Worker subrequest limits)
-    const batchSize = 8;
-    for (let i = 0; i < CHANNELS.length; i += batchSize) {
-      const batch = CHANNELS.slice(i, i + batchSize);
+    // Batches of 5 → lower peak concurrency; total subrequests still = channel count
+    const batchSize = 5;
+    for (let i = 0; i < channelsToFetch.length; i += batchSize) {
+      const batch = channelsToFetch.slice(i, i + batchSize);
       const batchResults = await Promise.all(batch.map(([id, name]) => searchChannelVideos(id, name, 3)));
       batchResults.forEach(ids => allVideoIds.push(...ids));
     }
@@ -1885,14 +1901,39 @@ async function fetchYouTubeVideos(env, force = false) {
       return [];
     }
 
-    // Step 2: Get video details
-    const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${uniqueVideoIds.join(',')}&key=${apiKey}`;
-    const detailsRes = await fetchWithTimeout(detailsUrl, { headers: { 'Referer': 'https://pikai.isearover.workers.dev/' } }, 15000);
-    if (!detailsRes.ok) {
-      console.error(`[YouTube] Details failed: ${detailsRes.status}`);
-      return [];
+    // Step 2: Get video details (duration/views). Must not wipe playlist results on failure.
+    let detailsData = { items: [] };
+    try {
+      const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${uniqueVideoIds.join(',')}&key=${apiKey}`;
+      const detailsRes = await fetchWithTimeout(detailsUrl, { headers: { 'Referer': 'https://pikai.isearover.workers.dev/' } }, 15000);
+      if (detailsRes.ok) {
+        detailsData = await detailsRes.json();
+      } else {
+        console.error(`[YouTube] Details failed: ${detailsRes.status} — falling back to playlist meta`);
+      }
+    } catch (e) {
+      console.error(`[YouTube] Details error: ${e.message} — falling back to playlist meta`);
     }
-    const detailsData = await detailsRes.json();
+
+    // If details empty, synthesize items from playlist meta so we still return videos
+    if (!detailsData.items || detailsData.items.length === 0) {
+      detailsData.items = uniqueVideoIds.map(id => {
+        const m = playlistMeta[id] || {};
+        return {
+          id,
+          snippet: {
+            title: m.title || '',
+            channelTitle: m.channel || '',
+            channelId: m.channelId || '',
+            publishedAt: m.publishedAt || '',
+            thumbnails: { high: { url: m.thumbnail } }
+          },
+          statistics: { viewCount: '0' },
+          contentDetails: { duration: 'PT10M0S' } // unknown duration — pass Shorts filter (≥5min)
+        };
+      });
+      console.log(`[YouTube] Using playlist-meta fallback for ${detailsData.items.length} videos`);
+    }
 
     const channelCounts = {};
 
