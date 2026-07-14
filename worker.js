@@ -1731,7 +1731,7 @@ async function fetchYouTubeVideos(env, force = false) {
     }
     */
 
-    const fortyEightHoursAgo = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+    const fortyEightHoursAgo = new Date(Date.now() - 168 * 60 * 60 * 1000).toISOString();
 
     const CHANNELS = [
       ['UCP7jMXSY2xbc3KCAE0MHQ-A', 'Google DeepMind'],
@@ -1939,12 +1939,12 @@ async function fetchYouTubeVideos(env, force = false) {
     });
 
     // Filter: reject videos older than 48 hours
-    const cutoffDate = new Date(Date.now() - 72 * 60 * 60 * 1000);
+    const cutoffDate = new Date(Date.now() - 168 * 60 * 60 * 1000);
     const recentVideos = videos.filter(video => {
       const pubDate = new Date(video.publishedAt);
       return pubDate >= cutoffDate;
     });
-    console.log(`[YouTube] Filtered to ${recentVideos.length} recent videos (48 hours)`);
+    console.log(`[YouTube] Filtered to ${recentVideos.length} recent videos (7 days)`);
 
     // Batch translate video titles to Chinese (single Workers AI call)
     const needTranslation = recentVideos.filter(v => v.title && !/[\u4e00-\u9fff]/.test(v.title));
