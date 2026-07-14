@@ -2935,6 +2935,14 @@ var worker_default = {
           return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
         }
       }
+      if (url.pathname === "/trigger-youtube") {
+        try {
+          const videos = await fetchYouTubeVideos(env);
+          return new Response(JSON.stringify({ success: true, count: videos.length }), { headers: { "Content-Type": "application/json" } });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { "Content-Type": "application/json" } });
+        }
+      }
       if (url.pathname === "/trigger-news") {
         try {
           const newsData = await fetchNewsData(env);
