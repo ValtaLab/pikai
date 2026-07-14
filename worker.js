@@ -41,7 +41,7 @@ function filterAllowedYouTubeVideos(videos = [], logPrefix = "[YouTube]") {
 }
 __name(filterAllowedYouTubeVideos, "filterAllowedYouTubeVideos");
 
-async function readYouTubeCache(env, cacheKey = "youtube:videos:v26") {
+async function readYouTubeCache(env, cacheKey = "youtube:videos:v25") {
   try {
     const cached = await env.AI_NEWS_KV.get(cacheKey);
     if (!cached) return null;
@@ -1683,7 +1683,7 @@ async function fetchYouTubeVideos(env, force = false) {
       return [];
     }
 
-    const cacheKey = 'youtube:videos:v26';
+    const cacheKey = 'youtube:videos:v25';
 
     // Check KV cache first
     const cachedVideos = await readYouTubeCache(env, cacheKey);
@@ -2914,7 +2914,7 @@ var worker_default = {
           try {
             const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
             data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-            const ytCacheKey = 'youtube:videos:v26';
+            const ytCacheKey = 'youtube:videos:v25';
             const ytCached = await readYouTubeCache(env, ytCacheKey);
             data.videos = ytCached ? ytCached.filteredVideos : [];
           } catch (_e) { data.blogPosts = []; data.videos = []; }
@@ -3132,7 +3132,7 @@ async function submitPost() {
       const cached = await env.AI_NEWS_KV.get("news-data");
       if (cached) {
       const data2 = JSON.parse(cached);
-      const ytCacheKey = 'youtube:videos:v26';
+      const ytCacheKey = 'youtube:videos:v25';
       const ytCached = await readYouTubeCache(env, ytCacheKey);
       if (ytCached && ytCached.filteredVideos.length > 0) {
         data2.videos = ytCached.filteredVideos;
