@@ -3025,43 +3025,13 @@ var worker_default = {
         }
       }
       if (url.pathname === "/trigger-news") {
-        try {
-          const newsData = await fetchNewsData(env);
-          const toolsData = await fetchToolsData(env);
-          const data = { ...newsData, tools: toolsData };
-          data.updatedAt = new Date().toISOString();
-          const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
-          data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-          // Chinese quality gate (same as cron)
-          const newCn = Math.max(countChineseTitles(newsData.news), countChineseTitles(newsData.summarizedNews));
-          const newHasEnough = hasEnoughChineseQuality(newsData.news, newsData.summarizedNews, 15, 10);
-          let oldCn = 0;
-          try {
-            const oldRaw = await env.AI_NEWS_KV.get("news-data");
-            if (oldRaw) {
-              const oldData = JSON.parse(oldRaw);
-              oldCn = Math.max(countChineseTitles(oldData.news), countChineseTitles(oldData.summarizedNews));
-            }
-          } catch (_e) {}
-          let kvWritten = false;
-          if (newHasEnough && (oldCn < 10 || newCn >= Math.min(10, oldCn))) {
-            await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
-            kvWritten = true;
-            console.log(`[/trigger-news] KV updated: ${data.news.length} news, ${newCn} Chinese`);
-          } else {
-            console.log(`[/trigger-news] SKIPPED KV write: newCn=${newCn} newLen=${newsData.news?.length || 0} oldCn=${oldCn}`);
-          }
-          return new Response(JSON.stringify({
-            success: true,
-            newsCount: data.news.length,
-            toolsCount: data.tools.length,
-            chineseCount: newCn,
-            updatedAt: data.updatedAt,
-            kvWritten
-          }, null, 2), { headers: { "Content-Type": "application/json" } });
-        } catch (e) {
-          return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
-        }
+        // 2026-07-15: DISABLED — Worker-side RSS news fetch races Pi feeder and overwrites Chinese.
+        // Use POST /api/ingest (pikai-feeder.py) only.
+        return new Response(JSON.stringify({
+          success: false,
+          disabled: true,
+          message: 'Worker news fetch disabled. Use Pi feeder POST /api/ingest only.'
+        }, null, 2), { status: 410, headers: { "Content-Type": "application/json" } });
       }
       if (url.pathname === "/trigger-rankings") {
         try {
@@ -3078,20 +3048,23 @@ var worker_default = {
       }
       if (url.pathname === "/debug-news") {
         try {
-          const newsData = await fetchNewsData(env);
-          const sample = newsData.news.slice(0, 3).map(item => ({
+          // Read KV only — never live-fetch news
+          const raw = await env.AI_NEWS_KV.get("news-data");
+          const data = raw ? JSON.parse(raw) : { news: [] };
+          const news = data.news || data.summarizedNews || [];
+          const sample = news.slice(0, 5).map(item => ({
             title: item.title,
             titleZh: item.titleZh,
             translatedTitle: item.translatedTitle,
-            hasTitleZh: !!item.titleZh,
-            hasTranslatedTitle: !!item.translatedTitle
+            hasChinese: /[\u4e00-\u9fff]/.test(item.translatedTitle || item.titleZh || '')
           }));
           return new Response(JSON.stringify({
-            totalNews: newsData.news.length,
-            sample: sample
-          }, null, 2), {
-            headers: { "Content-Type": "application/json" }
-          });
+            source: 'kv-only',
+            totalNews: news.length,
+            chineseCount: countChineseTitles(news),
+            updatedAt: data.updatedAt || null,
+            sample
+          }, null, 2), { headers: { "Content-Type": "application/json" } });
         } catch (e) {
           return new Response(JSON.stringify({ error: e.message }), { status: 500 });
         }
@@ -3189,25 +3162,21 @@ async function submitPost() {
         return new Response(adminHtml, { headers: { "Content-Type": "text/html; charset=utf-8" } });
       }
       if (url.searchParams.has("refresh")) {
-        const newsData = await fetchNewsData(env);
-        const toolsData = await fetchToolsData(env);
-        const videosData = await fetchYouTubeVideos(env);
-      const data2 = { ...newsData, tools: toolsData, videos: videosData };
-      data2.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-      const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
-      data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-      // Minimum article threshold: don't overwrite KV with incomplete data
-      // Prevents transient RSS failures from destroying good KV cache
-      if (newsData.news && newsData.news.length >= 15) {
-        await env.AI_NEWS_KV.put("news-data", JSON.stringify(data2));
-        console.log(`[?refresh=1] KV updated: ${newsData.news.length} news, ${toolsData?.length || 0} tools`);
-      } else {
-        console.log(`[?refresh=1] SKIPPED KV write: only ${newsData.news?.length || 0} articles (min 15 required)`);
-      }
-      const orRankings = await readORRankings(env);
-      data2.orRankings = orRankings;
-      const html2 = generatePage(data2);
-        return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
+        // 2026-07-15: NO live news fetch — serve KV only (same as normal load, no-cache headers)
+        console.log('[?refresh=1] KV-only reload (Worker news fetch disabled)');
+        const cachedRefresh = await env.AI_NEWS_KV.get("news-data");
+        if (cachedRefresh) {
+          const data2 = JSON.parse(cachedRefresh);
+          const ytCacheKey = 'youtube:videos:v25';
+          const ytCached = await readYouTubeCache(env, ytCacheKey);
+          if (ytCached && ytCached.filteredVideos.length > 0) data2.videos = ytCached.filteredVideos;
+          data2.orRankings = await readORRankings(env);
+          const html2 = generatePage(data2);
+          return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
+        }
+        return new Response(generatePage({ news: [], summarizedNews: [], tools: [], videos: [], blogPosts: [] }), {
+          headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }
+        });
       }
       const cached = await env.AI_NEWS_KV.get("news-data");
       if (cached) {

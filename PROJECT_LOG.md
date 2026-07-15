@@ -12,6 +12,14 @@ last_update_by: HermesBPi
 **版本:** `1c88658` | **部署時間:** 10:59 HKT | **狀態:** 運行中
 
 
+
+### 2026-07-15 08:25 | Kill ALL Worker news-fetch crons
+- **Root**: `ai-news-digest` shared KV `b8dfffba...` with **3 crons** still live (0/4/10 UTC) — overwrote pikai Chinese news
+- Cleared `ai-news-digest` schedules → [] via API; deployed NOOP worker
+- pikai: disable `/trigger-news` (410), `?refresh=1` KV-only, `/debug-news` KV-only
+- pikai CF cron remains 00:00/10:00 UTC **tools/rankings only** (no fetchNewsData)
+- News ingest ONLY: Pi `pikai-feeder.py` → POST /api/ingest
+
 ### 2026-07-15 08:16 | EN cards again — CF cron race
 - Symptom: 08:04 HKT cards all English after feeder Success
 - Cause: Worker CF cron 00:00 UTC (=08:00 HKT) still ran fetchNewsData, raced Pi feeder
