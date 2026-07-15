@@ -343,6 +343,7 @@ def main():
         print(f"\n[PikAI Feeder] Done in {elapsed:.1f}s", flush=True)
         print(f"  Articles: {result.get('articlesProcessed', '?')}", flush=True)
         print(f"  Summarized: {result.get('summarizedCount', '?')}", flush=True)
+        print(f"  Chinese: {result.get('chineseCount', '?')}", flush=True)
         print(f"  OG fetches: {result.get('ogFetches', '?')}", flush=True)
         print(f"  KV written: {result.get('kvWritten', '?')}", flush=True)
         

@@ -10,9 +10,9 @@ CF_ACCOUNT_ID = "77002f1945c94a1c33a11717015c378b"
 [ai]
 binding = "AI"
 
-# Cron Triggers:
-#  00:00 / 10:00 UTC = 08:00 / 18:00 HKT — news + tools
-#  YouTube force-fetch handled by Pi cron every 6h hitting /trigger-youtube
+# Cron Triggers (news is Pi feeder only — Worker cron must NOT overwrite news):
+#  00:00 / 10:00 UTC = 08:00 / 18:00 HKT — tools + rankings only
+#  YouTube: Pi cron → /trigger-youtube
 [triggers]
 crons = ["0 0 * * *", "0 10 * * *"]
 

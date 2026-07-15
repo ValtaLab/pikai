@@ -170,12 +170,16 @@ async function batchSummarizeWithWorkersAI(articles, env) {
       parsedArray = response.response;
     }
     if (!parsedArray && rawText) {
-      const m = rawText.match(/\[[\s\S]*?\]/);
-      if (m) try { parsedArray = JSON.parse(m[0]); } catch(e) {}
-    }
-    if (!parsedArray && response && typeof response === 'object') {
-      const m = JSON.stringify(response).match(/\[[\s\S]*?\]/);
-      if (m) try { parsedArray = JSON.parse(m[0]); } catch(e) {}
+      // Greedy outer array — non-greedy stops at first ] and often corrupts multi-object JSON
+      const start = rawText.indexOf('[');
+      const end = rawText.lastIndexOf(']');
+      if (start !== -1 && end > start) {
+        try { parsedArray = JSON.parse(rawText.slice(start, end + 1)); } catch(e) {}
+      }
+      if (!parsedArray) {
+        const m = rawText.match(/\[[\s\S]*\]/);
+        if (m) try { parsedArray = JSON.parse(m[0]); } catch(e) {}
+      }
     }
     
     if (parsedArray && Array.isArray(parsedArray) && parsedArray.length > 0) {
@@ -197,6 +201,9 @@ async function batchSummarizeWithWorkersAI(articles, env) {
         }
         if (!summary || summary.length < 5) qualityFlag = 'too_short';
         
+        // Never pass English headline through as translatedTitle
+        if (!hasChinese || qualityFlag === 'bad_headline') headline = '';
+        if (summary && !/[\u4e00-\u9fff]/.test(summary)) summary = '';
         return { translatedTitle: headline, summary, qualityFlag };
       });
     }
@@ -2559,35 +2566,30 @@ var worker_default = {
       return;
     }
 
-    // News + Tools cron (YouTube handled by Pi cron hitting /trigger-youtube)
-    console.log(`[Cron] News+tools run: ${cronExpr}`);
-    const newsData = await fetchNewsData(env);
-    const toolsData = await fetchToolsData(env);
-    const data = { ...newsData, tools: toolsData };
-    data.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
-    const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
-    data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
-    // Chinese quality gate: don't overwrite KV with English-heavy / incomplete data
-    // Must have enough articles AND enough Chinese titles (raw EN extract no longer counts)
-    const newCn = Math.max(countChineseTitles(newsData.news), countChineseTitles(newsData.summarizedNews));
-    const newHasEnough = hasEnoughChineseQuality(newsData.news, newsData.summarizedNews, 15, 10);
-    let oldHasChinese = false;
-    let oldCn = 0;
+    // 2026-07-15: DO NOT fetchNewsData here — Pi feeder (/api/ingest) is source of truth.
+    // Worker RSS path races feeder at 08:00 HKT and can overwrite Chinese cards with EN.
+    console.log(`[Cron] Tools/rankings only (news via Pi feeder): ${cronExpr}`);
+    let data = null;
     try {
       const oldRaw = await env.AI_NEWS_KV.get("news-data");
-      if (oldRaw) {
-        const oldData = JSON.parse(oldRaw);
-        oldCn = Math.max(countChineseTitles(oldData.news), countChineseTitles(oldData.summarizedNews));
-        oldHasChinese = oldCn >= 10;
-      }
-    } catch (_e) {}
-    // Only write if new data is Chinese-quality AND not much worse than old
-    if (newHasEnough && (!oldHasChinese || newCn >= Math.min(10, oldCn))) {
-      await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
-      console.log(`[Cron] KV updated: ${data.news.length} news, ${newCn} Chinese, ${data.tools.length} tools`);
-    } else {
-      console.log(`[Cron] SKIPPED KV write: newCn=${newCn} newLen=${newsData.news?.length || 0} oldCn=${oldCn}`);
+      data = oldRaw ? JSON.parse(oldRaw) : { news: [], summarizedNews: [], tools: [], videos: [], blogPosts: [] };
+    } catch (_e) {
+      data = { news: [], summarizedNews: [], tools: [], videos: [], blogPosts: [] };
     }
+    try {
+      const toolsData = await fetchToolsData(env);
+      if (Array.isArray(toolsData) && toolsData.length > 0) data.tools = toolsData;
+    } catch (e) {
+      console.log(`[Cron] tools refresh failed: ${e.message}`);
+    }
+    // Preserve existing news/summarizedNews/videos; only touch tools + optional rankings
+    try {
+      const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
+      if (blogPostsRaw) data.blogPosts = JSON.parse(blogPostsRaw);
+    } catch (_e) {}
+    // Do not bump updatedAt for tools-only — keeps "更新時間" tied to last news ingest
+    await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+    console.log(`[Cron] tools refreshed; news preserved count=${(data.news||[]).length} cn=${countChineseTitles(data.news||[])}`);
     // Also refresh rankings on the midnight cron
     if (cronExpr === '0 0 * * *') {
       try {
@@ -2967,7 +2969,7 @@ var worker_default = {
             if (!displayTitle || !/[\u4e00-\u9fff]/.test(displayTitle)) {
               try {
                 let zh = await translateTitleWithWorkersAI(article.title, env);
-                if (zh) article.translatedTitle = zh;
+                if (zh && /[\u4e00-\u9fff]/.test(zh)) article.translatedTitle = zh;
               } catch (_e) {}
             }
           }
@@ -3743,13 +3745,13 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
         }
         html += '<div class="summarized-content">';
         html += '<div class="summarized-source">' + escapeHtml(article.source ? article.source.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : 'AI News') + '</div>';
-        html += '<div class="summarized-title">' + escapeHtml(article.translatedTitle || article.titleZh || article.title) + '</div>';
+        html += '<div class="summarized-title">' + escapeHtml((function(a){ var t=a.translatedTitle||a.titleZh||''; if(/[\u4e00-\u9fff]/.test(t)) return t; var en=a.title||''; return /[\u4e00-\u9fff]/.test(en)?en:'（翻譯處理中）'; })(article)) + '</div>';
         if (article.summary) {
           let cleanSummary = article.summary.replace(/^標題[：:]\s*[\s\S]*?(?=\n{2,}|$)/, '').trim();
           cleanSummary = cleanSummary.replace(/\n?標題[：:]\s*.+?\n/, '\n').trim();
           html += '<div class="summarized-text">' + escapeHtml(cleanSummary) + '</div>';
         }
-        html += '<div class="news-ai-wrap"><button class="news-ai-btn" data-url="' + escapeHtml(article.url) + '" data-title="' + escapeHtml(article.translatedTitle || article.titleZh || article.title) + '" onclick="event.stopPropagation();fetchNewsSummary(this)">🧠 AI Digest</button><div class="news-ai-summary"><div class="news-ai-body"></div></div><div class="news-ai-error"></div></div>';
+        html += '<div class="news-ai-wrap"><button class="news-ai-btn" data-url="' + escapeHtml(article.url) + '" data-title="' + escapeHtml((function(a){ var t=a.translatedTitle||a.titleZh||''; if(/[\u4e00-\u9fff]/.test(t)) return t; var en=a.title||''; return /[\u4e00-\u9fff]/.test(en)?en:'（翻譯處理中）'; })(article)) + '" onclick="event.stopPropagation();fetchNewsSummary(this)">🧠 AI Digest</button><div class="news-ai-summary"><div class="news-ai-body"></div></div><div class="news-ai-error"></div></div>';
         html += '</div></div>';
       }
     });

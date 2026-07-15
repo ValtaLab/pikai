@@ -11,6 +11,14 @@ last_update_by: HermesBPi
 ## 🚀 最新狀態 (2026-07-11)
 **版本:** `1c88658` | **部署時間:** 10:59 HKT | **狀態:** 運行中
 
+
+### 2026-07-15 08:16 | EN cards again — CF cron race
+- Symptom: 08:04 HKT cards all English after feeder Success
+- Cause: Worker CF cron 00:00 UTC (=08:00 HKT) still ran fetchNewsData, raced Pi feeder
+- Fix: scheduled() no longer fetchNewsData; preserve news; tools/rankings only
+- Harden: batch JSON greedy parse, blank EN headlines, display no pure-EN fallback
+- Re-ran feeder → 50/50 Chinese @ 08:15
+
 ### 已修復 (2026-07-11)
 - **fix: threshold guard 加強 — 同時 check `summarizedNews.length >= 5`** (Commit 1c88658)
 - **根因**: midnight cron run (`0 0 * * *`) 有時 Workers AI 短暫失靈，`summarizedNews` 得 0 篇，但 threshold guard 只 check `news.length >= 15`。`news` array 可以由 fallback pool（冇 AI 翻譯嘅文章）填滿 17 篇 → threshold pass → 寫入 KV 冚咗好嘅 cache → 用戶見到全部英文標題
