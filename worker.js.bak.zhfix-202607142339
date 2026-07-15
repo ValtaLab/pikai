@@ -60,54 +60,6 @@ async function readYouTubeCache(env, cacheKey = "youtube:videos:v25") {
 }
 __name(readYouTubeCache, "readYouTubeCache");
 
-
-// === PikAI AI helpers (2026-07-14): Qwen3 /no_think + response extract + Chinese gate ===
-const QWEN3_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8';
-// Qwen3 is a thinking model; without /no_think it spends max_tokens on reasoning and returns content:null
-const QWEN3_NO_THINK_PREFIX = '/no_think\n';
-
-function extractWorkersAIText(response) {
-  if (response == null) return '';
-  if (typeof response === 'string') return response;
-  if (typeof response.response === 'string') return response.response;
-  if (response.response != null && typeof response.response === 'object') {
-    try {
-      if (typeof response.response.content === 'string') return response.response.content;
-      return JSON.stringify(response.response);
-    } catch (_e) {}
-  }
-  // OpenAI-style chat completion (Workers AI REST / some bindings)
-  const msg = response.choices && response.choices[0] && response.choices[0].message;
-  if (msg) {
-    if (typeof msg.content === 'string' && msg.content.trim()) return msg.content;
-    // Do NOT fall back to reasoning/reasoning_content — that is chain-of-thought, not the answer
-  }
-  if (Array.isArray(response)) {
-    try { return JSON.stringify(response); } catch (_e) { return ''; }
-  }
-  if (typeof response === 'object') {
-    try { return JSON.stringify(response); } catch (_e) { return ''; }
-  }
-  return '';
-}
-__name(extractWorkersAIText, 'extractWorkersAIText');
-
-function countChineseTitles(articles) {
-  if (!articles || !articles.length) return 0;
-  return articles.filter(a => {
-    const t = (a && (a.translatedTitle || a.titleZh || '')) + '';
-    return /[\u4e00-\u9fff]/.test(t);
-  }).length;
-}
-__name(countChineseTitles, 'countChineseTitles');
-
-function hasEnoughChineseQuality(news, summarizedNews, minArticles = 15, minChinese = 10) {
-  const n = (news && news.length) || 0;
-  const cn = Math.max(countChineseTitles(news), countChineseTitles(summarizedNews));
-  return n >= minArticles && cn >= minChinese;
-}
-__name(hasEnoughChineseQuality, 'hasEnoughChineseQuality');
-
 // Cloudflare Workers AI - Summarize and translate news with Llama 3.1
 // Structured JSON output with quality validation
 async function batchSummarizeWithWorkersAI(articles, env) {
@@ -150,36 +102,38 @@ async function batchSummarizeWithWorkersAI(articles, env) {
 【輸出格式】
 嚴格輸出 JSON 陣列，順序同上，每人一條。`;
 
-    const response = await env.AI.run(QWEN3_MODEL, {
+    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
       messages: [
-        { role: 'system', content: QWEN3_NO_THINK_PREFIX + systemPrompt },
-        { role: 'user', content: QWEN3_NO_THINK_PREFIX + userContent }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent }
       ],
       max_tokens: 6000,
       temperature: 0.3
     });
     clearTimeout(timeoutId);
     
-    // Parse response (supports binding {response} and OpenAI choices[].message.content)
+    // Parse response
     let parsedArray = null;
-    const rawText = extractWorkersAIText(response);
     
+    // Try direct array
     if (Array.isArray(response)) {
       parsedArray = response;
-    } else if (response && Array.isArray(response.response)) {
-      parsedArray = response.response;
-    }
-    if (!parsedArray && rawText) {
-      // Greedy outer array — non-greedy stops at first ] and often corrupts multi-object JSON
-      const start = rawText.indexOf('[');
-      const end = rawText.lastIndexOf(']');
-      if (start !== -1 && end > start) {
-        try { parsedArray = JSON.parse(rawText.slice(start, end + 1)); } catch(e) {}
-      }
-      if (!parsedArray) {
-        const m = rawText.match(/\[[\s\S]*\]/);
+    } else if (response && response.response) {
+      if (Array.isArray(response.response)) {
+        parsedArray = response.response;
+      } else if (typeof response.response === 'string') {
+        const m = response.response.match(/\[[\s\S]*?\]/);
+        if (m) try { parsedArray = JSON.parse(m[0]); } catch(e) {}
+      } else if (typeof response.response === 'object') {
+        const m = JSON.stringify(response.response).match(/\[[\s\S]*?\]/);
         if (m) try { parsedArray = JSON.parse(m[0]); } catch(e) {}
       }
+    } else if (typeof response === 'string') {
+      const m = response.match(/\[[\s\S]*?\]/);
+      if (m) try { parsedArray = JSON.parse(m[0]); } catch(e) {}
+    } else if (response && typeof response === 'object') {
+      const m = JSON.stringify(response).match(/\[[\s\S]*?\]/);
+      if (m) try { parsedArray = JSON.parse(m[0]); } catch(e) {}
     }
     
     if (parsedArray && Array.isArray(parsedArray) && parsedArray.length > 0) {
@@ -201,9 +155,6 @@ async function batchSummarizeWithWorkersAI(articles, env) {
         }
         if (!summary || summary.length < 5) qualityFlag = 'too_short';
         
-        // Never pass English headline through as translatedTitle
-        if (!hasChinese || qualityFlag === 'bad_headline') headline = '';
-        if (summary && !/[\u4e00-\u9fff]/.test(summary)) summary = '';
         return { translatedTitle: headline, summary, qualityFlag };
       });
     }
@@ -231,10 +182,10 @@ async function batchTranslateTitlesWithWorkersAI(titles, env) {
     let userContent = '將以下英文標題翻譯成繁體中文，只輸出 JSON 陣列，格式：["中文標題1", "中文標題2", ...]\n\n';
     titles.forEach((t, i) => { userContent += `${i+1}. ${t}\n`; });
     
-    const response = await env.AI.run(QWEN3_MODEL, {
+    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
       messages: [
-        { role: 'system', content: QWEN3_NO_THINK_PREFIX + '你係專業翻譯。將每個英文標題翻譯成自然通順嘅繁體中文（15-30字）。保留公司名、產品名、技術名詞。只輸出 JSON 陣列。' },
-        { role: 'user', content: QWEN3_NO_THINK_PREFIX + userContent }
+        { role: 'system', content: '你係專業翻譯。將每個英文標題翻譯成自然通順嘅繁體中文（15-30字）。保留公司名、產品名、技術名詞。只輸出 JSON 陣列。' },
+        { role: 'user', content: userContent }
       ],
       max_tokens: 2000,
       temperature: 0.3
@@ -242,8 +193,8 @@ async function batchTranslateTitlesWithWorkersAI(titles, env) {
     clearTimeout(timeoutId);
     
     let parsed = null;
-    const text = extractWorkersAIText(response);
-    if (typeof text === 'string' && text) {
+    const text = typeof response === 'string' ? response : response?.response;
+    if (typeof text === 'string') {
       const m = text.match(/\[[\s\S]*?\]/);
       if (m) try { parsed = JSON.parse(m[0]); } catch(e) {}
     }
@@ -304,10 +255,10 @@ async function summarizeWithWorkersAI(title, description, env) {
   "confidence": 8
 }`;
 
-    const response = await env.AI.run(QWEN3_MODEL, {
+    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
       messages: [
-        { role: 'system', content: QWEN3_NO_THINK_PREFIX + systemPrompt },
-        { role: 'user', content: QWEN3_NO_THINK_PREFIX + `標題：${title}\n內容：${description}` }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `標題：${title}\n內容：${description}` }
       ],
       max_tokens: 800,
       temperature: 0.3
@@ -994,17 +945,24 @@ async function translateTitleWithWorkersAI(title, env) {
 英文：I paid for Claude, ChatGPT, and Perplexity for a month but only one of them deserves my $20
 中文：實測比較：Claude、ChatGPT、Perplexity 邊個值得付費`;
 
-    const response = await env.AI.run(QWEN3_MODEL, {
+    const response = await env.AI.run('@cf/qwen/qwen3-30b-a3b-fp8', {
       messages: [
-        { role: 'system', content: QWEN3_NO_THINK_PREFIX + systemPrompt },
-        { role: 'user', content: QWEN3_NO_THINK_PREFIX + `標題：${title}` }
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: `標題：${title}` }
       ],
-      max_tokens: 300,
+      max_tokens: 200,
       temperature: 0.3
     });
     clearTimeout(timeoutId);
     
-    let text = extractWorkersAIText(response);
+    let text = '';
+    if (typeof response === 'string') {
+      text = response;
+    } else if (response && response.response) {
+      text = typeof response.response === 'string' ? response.response : JSON.stringify(response.response);
+    } else if (response && typeof response === 'object') {
+      text = JSON.stringify(response);
+    }
     
     text = text.trim();
     
@@ -1281,7 +1239,7 @@ function parseRSS(xmlText, sourceName, format = "rss", isAIOOnly = false) {
   const isAtom = format === "atom";
   const itemRegex = isAtom ? /<entry[^>]*>([\s\S]*?)<\/entry>/gi : /<item[^>]*>([\s\S]*?)<\/item>/gi;
   let match;
-  const AI_KEYWORDS = ["AI", "Artificial Intelligence", "Machine Learning", "Deep Learning", "Neural Network", "LLM", "ChatGPT", "OpenAI", "GPT", "Gemini", "Claude", "Anthropic", "Stable Diffusion", "Midjourney", "AI Model", "Transformer", "MCP", "AI Agent", "AI Agents", "Agentic", "Copilot", "Cursor", "Perplexity", "Llama", "Mistral", "Qwen", "DeepSeek", "Hugging Face", "Reinforcement Learning", "Computer Vision", "NLP", "RAG", "Fine-tuning", "Prompt Engineering", "Generative AI", "Multimodal", "AI Inference", "Embedding Model", "Vector Database", "Dataset", "Benchmark", "GPU", "CUDA", "PyTorch", "TensorFlow", "JAX", "ONNX", "Quantization", "Pruning", "Distillation", "Synthetic Data", "AI Safety", "Alignment", "Hallucination", "AI Reasoning", "Chain of Thought", "Function Calling", "Tool Use", "Code Generation", "Text-to-Image", "Text-to-Video", "Voice Clone", "TTS", "ASR", "OCR", "Autonomous Vehicle", "Autonomous Agent", "Robotics", "Brain-Computer", "Neuromorphic", "Federated Learning", "Edge AI", "On-device", "Local LLM", "Open Source AI", "Foundation Model", "MoE", "Mixture of Experts", "State Space", "Mamba", "Diffusion Model", "Flow Matching", "Consistency Model", "VAE", "GAN", "Autoencoder", "Self-supervised", "Contrastive Learning", "Instruction Tuning", "RLHF", "DPO", "GRPO", "PPO", "LoRA", "QLoRA", "Adapter", "Prefix Tuning", "BitNet", "GGUF", "AWQ", "GPTQ", "ExLlama", "vLLM", "TGI", "Triton", "OpenVINO", "TensorRT", "CoreML", "WebNN", "WebGPU", "WASM", "WASI", "Serverless", "Inference API", "Model Hub", "Weights", "Checkpoint", "Safetensors", "Pickle", "ONNX Runtime", "DirectML", "ROCm", "OneAPI", "SYCL", "OpenCL", "Metal", "Vulkan", "SPIR-V", "IREE", "MLIR", "XLA", "JAX", "Flax", "Haiku", "Equinox", "Keras", "FastAI", "Lightning", "Accelerate", "Transformers", "Diffusers", "Tokenizers", "Datasets", "Evaluate", "PEFT", "TRL", "Unsloth", "Axolotl", "LlamaFactory", "Ollama", "LM Studio", "GPT4All", "LocalAI", "Text Generation", "Inference Engine", "Model Serving", "Batch Inference", "Streaming", "SSE", "WebSocket", "gRPC", "REST API", "GraphQL", "OpenAPI", "Swagger", "FastAPI", "Flask", "Django", "Express", "Next.js", "Nuxt", "SvelteKit", "Astro", "Remix", "SolidStart", "Qwik", "Fresh", "Hono", "Elysia", "Nitro", "Vite", "Rollup", "esbuild", "SWC", "Turbopack", "Bun", "Deno", "Node.js", "Python", "Rust", "Go", "Zig", "Mojo", "Julia", "R", "MATLAB", "Scala", "Kotlin", "Swift", "Dart", "Flutter", "React Native", "Expo", "Ionic", "Capacitor", "Tauri", "Electron", "Wails", "Fyne", "GTK", "Qt", "SDL", "Raylib", "Bevy", "Godot", "Unity", "Unreal", "Blender", "Maya", "Houdini", "Cinema 4D", "After Effects", "Premiere", "DaVinci", "Final Cut", "OBS", "Streamlabs", "FFmpeg", "GStreamer", "WebRTC", "RTMP", "HLS", "DASH", "WebCodecs", "MediaRecorder", "Canvas", "WebGL", "WebGPU", "Three.js", "Babylon.js", "PlayCanvas", "Phaser", "PixiJS", "Regl", "LumaGL", "deck.gl", "kepler.gl", "D3.js", "Observable", "Vega", "Vega-Lite", "Altair", "Plotly", "Bokeh", "Matplotlib", "Seaborn", "ggplot2", "tidyverse", "pandas", "NumPy", "SciPy", "scikit-learn", "XGBoost", "LightGBM", "CatBoost", "Optuna", "Ray", "Dask", "Modin", "Polars", "DuckDB", "SQLite", "PostgreSQL", "MySQL", "MongoDB", "Redis", "Elasticsearch", "OpenSearch", "Solr", "Meilisearch", "Typesense", "Pinecone", "Weaviate", "Milvus", "Qdrant", "Chroma", "pgvector", "Faiss", "Annoy", "HNSW", "ScaNN", "Voyager", "USearch", "Marqo", "Jina", "DocArray", "LangChain", "LlamaIndex", "Haystack", "Semantic Kernel", "AutoGen", "CrewAI", "LangGraph", "Flowise", "n8n", "Make", "Zapier", "IFTTT", "Pipedream", "Temporal", "Cadence", "Camunda", "Airflow", "Prefect", "Dagster", "Mage", "Kestra", "Orchestrator", "Metaflow", "Kubeflow", "MLflow", "Weights \u0026 Biases", "Comet", "Neptune", "DVC", "CML", "Great Expectations", "Pandera", "Evidently", "WhyLabs", "Arize", "Fiddler", "Truera", "Arthur", "Aporia", "Mona", "Whylabs", "Evidently AI", "Deepchecks", "TensorBoard", "WandB", "ClearML", "Polyaxon", "Seldon", "KServe", "BentoML", "Cog", "Banana", "Replicate", "Modal", "Beam", "RunPod", "Vast.ai", "Lambda Labs", "CoreWeave", "Paperspace", "Jarvislabs", "Lightning AI", "Saturn Cloud", "Coiled", "Anyscale", "Ray Serve", "Ray Train", "Ray Tune", "Ray RLlib", "Ray Data", "Spark", "Flink", "Kafka", "Pulsar", "NATS", "RabbitMQ", "ZeroMQ", "Redis Streams", "AWS Kinesis", "Google Pub/Sub", "Azure Event Hubs", "Cloudflare Queues", "SQS", "SNS", "EventBridge", "Step Functions", "Logic Apps", "Power Automate", "Zapier", "Make", "n8n", "Huginn", "Node-RED", "Home Assistant", "OpenHAB", "HomeKit", "Matter", "Thread", "Zigbee", "Z-Wave", "Bluetooth LE", "UWB", "NFC", "RFID", "LoRa", "Sigfox", "NB-IoT", "LTE-M", "5G", "WiFi 6", "WiFi 7", "Matter", "ESP32", "Raspberry Pi", "Arduino", "MicroPython", "CircuitPython", "TinyML", "Edge Impulse", "Arduino Cloud", "PlatformIO", "Zephyr", "FreeRTOS", "RIOT", "Contiki", "TinyOS", "NuttX", "ChibiOS", "RT-Thread", "Micropython", "Lua", "JavaScript", "TypeScript", "WASM", "WASI", "AssemblyScript", "Grain", "Motoko", "Rust", "TinyGo", "Nim", "Crystal", "V", "Odin", "Jai", "Zig", "Carbon", "Cpp2", "Circle", "D", "Nim", "Crystal", "V", "Odin", "Jai", "Zig", "Carbon", "Cpp2", "Circle"];
+  const AI_KEYWORDS = ["AI", "Artificial Intelligence", "Machine Learning", "Deep Learning", "Neural Network", "LLM", "ChatGPT", "OpenAI", "GPT", "Gemini", "Claude", "Anthropic", "Stable Diffusion", "Midjourney", "AI Model", "Transformer", "Diffusion", "MCP", "Agent", "Copilot", "Cursor", "Perplexity", "Llama", "Mistral", "Qwen", "DeepSeek", "Hugging Face", "Reinforcement Learning", "Computer Vision", "NLP", "RAG", "Fine-tuning", "Prompt Engineering", "Generative AI", "Multimodal", "Inference", "Token", "Embedding", "Vector", "Dataset", "Benchmark", "GPU", "CUDA", "PyTorch", "TensorFlow", "JAX", "ONNX", "Quantization", "Pruning", "Distillation", "Synthetic Data", "AI Safety", "Alignment", "Hallucination", "Reasoning", "Chain of Thought", "Function Calling", "Tool Use", "Code Generation", "Text-to-Image", "Text-to-Video", "Voice Clone", "TTS", "ASR", "OCR", "Cognitive", "Autonomous", "Robotics", "Brain-Computer", "Neuromorphic", "Federated Learning", "Edge AI", "On-device", "Local LLM", "Open Source AI", "Foundation Model", "MoE", "Mixture of Experts", "State Space", "Mamba", "Diffusion Model", "Flow Matching", "Consistency Model", "VAE", "GAN", "Autoencoder", "Self-supervised", "Contrastive Learning", "Instruction Tuning", "RLHF", "DPO", "GRPO", "PPO", "LoRA", "QLoRA", "Adapter", "Prefix Tuning", "BitNet", "GGUF", "AWQ", "GPTQ", "ExLlama", "vLLM", "TGI", "Triton", "OpenVINO", "TensorRT", "CoreML", "WebNN", "WebGPU", "WASM", "WASI", "Serverless", "Inference API", "Model Hub", "Weights", "Checkpoint", "Safetensors", "Pickle", "ONNX Runtime", "DirectML", "ROCm", "OneAPI", "SYCL", "OpenCL", "Metal", "Vulkan", "SPIR-V", "IREE", "MLIR", "XLA", "JAX", "Flax", "Haiku", "Equinox", "Keras", "FastAI", "Lightning", "Accelerate", "Transformers", "Diffusers", "Tokenizers", "Datasets", "Evaluate", "PEFT", "TRL", "Unsloth", "Axolotl", "LlamaFactory", "Ollama", "LM Studio", "GPT4All", "LocalAI", "Text Generation", "Inference Engine", "Model Serving", "Batch Inference", "Streaming", "SSE", "WebSocket", "gRPC", "REST API", "GraphQL", "OpenAPI", "Swagger", "FastAPI", "Flask", "Django", "Express", "Next.js", "Nuxt", "SvelteKit", "Astro", "Remix", "SolidStart", "Qwik", "Fresh", "Hono", "Elysia", "Nitro", "Vite", "Rollup", "esbuild", "SWC", "Turbopack", "Bun", "Deno", "Node.js", "Python", "Rust", "Go", "Zig", "Mojo", "Julia", "R", "MATLAB", "Scala", "Kotlin", "Swift", "Dart", "Flutter", "React Native", "Expo", "Ionic", "Capacitor", "Tauri", "Electron", "Wails", "Fyne", "GTK", "Qt", "SDL", "Raylib", "Bevy", "Godot", "Unity", "Unreal", "Blender", "Maya", "Houdini", "Cinema 4D", "After Effects", "Premiere", "DaVinci", "Final Cut", "OBS", "Streamlabs", "FFmpeg", "GStreamer", "WebRTC", "RTMP", "HLS", "DASH", "WebCodecs", "MediaRecorder", "Canvas", "WebGL", "WebGPU", "Three.js", "Babylon.js", "PlayCanvas", "Phaser", "PixiJS", "Regl", "LumaGL", "deck.gl", "kepler.gl", "D3.js", "Observable", "Vega", "Vega-Lite", "Altair", "Plotly", "Bokeh", "Matplotlib", "Seaborn", "ggplot2", "tidyverse", "pandas", "NumPy", "SciPy", "scikit-learn", "XGBoost", "LightGBM", "CatBoost", "Optuna", "Ray", "Dask", "Modin", "Polars", "DuckDB", "SQLite", "PostgreSQL", "MySQL", "MongoDB", "Redis", "Elasticsearch", "OpenSearch", "Solr", "Meilisearch", "Typesense", "Pinecone", "Weaviate", "Milvus", "Qdrant", "Chroma", "pgvector", "Faiss", "Annoy", "HNSW", "ScaNN", "Voyager", "USearch", "Marqo", "Jina", "DocArray", "LangChain", "LlamaIndex", "Haystack", "Semantic Kernel", "AutoGen", "CrewAI", "LangGraph", "Flowise", "n8n", "Make", "Zapier", "IFTTT", "Pipedream", "Temporal", "Cadence", "Camunda", "Airflow", "Prefect", "Dagster", "Mage", "Kestra", "Orchestrator", "Metaflow", "Kubeflow", "MLflow", "Weights \u0026 Biases", "Comet", "Neptune", "DVC", "CML", "Great Expectations", "Pandera", "Evidently", "WhyLabs", "Arize", "Fiddler", "Truera", "Arthur", "Aporia", "Mona", "Whylabs", "Evidently AI", "Deepchecks", "TensorBoard", "WandB", "ClearML", "Polyaxon", "Seldon", "KServe", "BentoML", "Cog", "Banana", "Replicate", "Modal", "Beam", "RunPod", "Vast.ai", "Lambda Labs", "CoreWeave", "Paperspace", "Jarvislabs", "Lightning AI", "Saturn Cloud", "Coiled", "Anyscale", "Ray Serve", "Ray Train", "Ray Tune", "Ray RLlib", "Ray Data", "Spark", "Flink", "Kafka", "Pulsar", "NATS", "RabbitMQ", "ZeroMQ", "Redis Streams", "AWS Kinesis", "Google Pub/Sub", "Azure Event Hubs", "Cloudflare Queues", "SQS", "SNS", "EventBridge", "Step Functions", "Logic Apps", "Power Automate", "Zapier", "Make", "n8n", "Huginn", "Node-RED", "Home Assistant", "OpenHAB", "HomeKit", "Matter", "Thread", "Zigbee", "Z-Wave", "Bluetooth LE", "UWB", "NFC", "RFID", "LoRa", "Sigfox", "NB-IoT", "LTE-M", "5G", "WiFi 6", "WiFi 7", "Matter", "ESP32", "Raspberry Pi", "Arduino", "MicroPython", "CircuitPython", "TinyML", "Edge Impulse", "Arduino Cloud", "PlatformIO", "Zephyr", "FreeRTOS", "RIOT", "Contiki", "TinyOS", "NuttX", "ChibiOS", "RT-Thread", "Micropython", "Lua", "JavaScript", "TypeScript", "WASM", "WASI", "AssemblyScript", "Grain", "Motoko", "Rust", "TinyGo", "Nim", "Crystal", "V", "Odin", "Jai", "Zig", "Carbon", "Cpp2", "Circle", "D", "Nim", "Crystal", "V", "Odin", "Jai", "Zig", "Carbon", "Cpp2", "Circle"];
   while ((match = itemRegex.exec(xmlText)) !== null) {
     const itemXml = match[1];
     const title = parseItemXml(itemXml, "title");
@@ -1839,20 +1797,10 @@ async function fetchYouTubeVideos(env, force = false) {
       ['UCXNviQjBONXljxkJzNV-Xbw', 'The Robot Brains Podcast']
     ];
 
-    // CF Free plan: max 50 subrequests/invocation. Cap channel playlist fetches so
-    // playlistItems (≤45) + videos.list (1) stays under the limit. Without this,
-    // details call throws "Too many subrequests" and the outer catch returns [] —
-    // wiping 60+ already-found IDs (2026-07-14 incident).
-    const MAX_CHANNEL_FETCHES = 45;
-    // Rotate starting offset by UTC day so all channels get coverage over a week
-    const dayOffset = (Math.floor(Date.now() / 86400000) * 7) % CHANNELS.length;
-    const rotated = CHANNELS.slice(dayOffset).concat(CHANNELS.slice(0, dayOffset));
-    const channelsToFetch = rotated.slice(0, MAX_CHANNEL_FETCHES);
-    console.log(`[YouTube] Checking ${channelsToFetch.length}/${CHANNELS.length} whitelist channels (subrequest budget, offset=${dayOffset})`);
+    console.log(`[YouTube] Checking ${CHANNELS.length} whitelist channels`);
 
     const searchTimeout = 8000;
     const allVideoIds = [];
-    const playlistMeta = {}; // videoId → {title, channel, channelId, publishedAt, thumbnail}
 
     async function searchChannelVideos(channelId, channelName, maxResults) {
       const uploadsPlaylistId = 'UU' + channelId.slice(2);
@@ -1861,22 +1809,16 @@ async function fetchYouTubeVideos(env, force = false) {
         const playlistRes = await fetchWithTimeout(playlistUrl, { headers: { 'Referer': 'https://pikai.isearover.workers.dev/' } }, searchTimeout);
         if (playlistRes.ok) {
           const playlistData = await playlistRes.json();
-          const ids = [];
-          for (const item of (playlistData.items || [])) {
-            const sn = item.snippet || {};
-            if (sn.channelId !== channelId) continue;
-            if (sn.publishedAt && new Date(sn.publishedAt) < new Date(fortyEightHoursAgo)) continue;
-            const vid = sn.resourceId?.videoId;
-            if (!vid) continue;
-            ids.push(vid);
-            playlistMeta[vid] = {
-              title: sn.title || '',
-              channel: sn.channelTitle || channelName,
-              channelId: sn.channelId || channelId,
-              publishedAt: sn.publishedAt || '',
-              thumbnail: sn.thumbnails?.high?.url || sn.thumbnails?.medium?.url || `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`
-            };
-          }
+          const ids = (playlistData.items || [])
+            .filter(item => {
+              const itemChannelId = item.snippet?.channelId;
+              if (itemChannelId !== channelId) return false;
+              const publishedAt = item.snippet?.publishedAt;
+              if (publishedAt && new Date(publishedAt) < new Date(fortyEightHoursAgo)) return false;
+              return true;
+            })
+            .map(item => item.snippet?.resourceId?.videoId)
+            .filter(Boolean);
           if (ids.length > 0) console.log(`[YouTube] "${channelName}" → ${ids.length} videos`);
           return ids;
         } else {
@@ -1890,10 +1832,10 @@ async function fetchYouTubeVideos(env, force = false) {
       }
     }
 
-    // Batches of 5 → lower peak concurrency; total subrequests still = channel count
-    const batchSize = 5;
-    for (let i = 0; i < channelsToFetch.length; i += batchSize) {
-      const batch = channelsToFetch.slice(i, i + batchSize);
+    // Search channels in parallel batches of 8 (stay under Worker subrequest limits)
+    const batchSize = 8;
+    for (let i = 0; i < CHANNELS.length; i += batchSize) {
+      const batch = CHANNELS.slice(i, i + batchSize);
       const batchResults = await Promise.all(batch.map(([id, name]) => searchChannelVideos(id, name, 3)));
       batchResults.forEach(ids => allVideoIds.push(...ids));
     }
@@ -1908,39 +1850,14 @@ async function fetchYouTubeVideos(env, force = false) {
       return [];
     }
 
-    // Step 2: Get video details (duration/views). Must not wipe playlist results on failure.
-    let detailsData = { items: [] };
-    try {
-      const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${uniqueVideoIds.join(',')}&key=${apiKey}`;
-      const detailsRes = await fetchWithTimeout(detailsUrl, { headers: { 'Referer': 'https://pikai.isearover.workers.dev/' } }, 15000);
-      if (detailsRes.ok) {
-        detailsData = await detailsRes.json();
-      } else {
-        console.error(`[YouTube] Details failed: ${detailsRes.status} — falling back to playlist meta`);
-      }
-    } catch (e) {
-      console.error(`[YouTube] Details error: ${e.message} — falling back to playlist meta`);
+    // Step 2: Get video details
+    const detailsUrl = `https://www.googleapis.com/youtube/v3/videos?part=snippet,contentDetails,statistics&id=${uniqueVideoIds.join(',')}&key=${apiKey}`;
+    const detailsRes = await fetchWithTimeout(detailsUrl, { headers: { 'Referer': 'https://pikai.isearover.workers.dev/' } }, 15000);
+    if (!detailsRes.ok) {
+      console.error(`[YouTube] Details failed: ${detailsRes.status}`);
+      return [];
     }
-
-    // If details empty, synthesize items from playlist meta so we still return videos
-    if (!detailsData.items || detailsData.items.length === 0) {
-      detailsData.items = uniqueVideoIds.map(id => {
-        const m = playlistMeta[id] || {};
-        return {
-          id,
-          snippet: {
-            title: m.title || '',
-            channelTitle: m.channel || '',
-            channelId: m.channelId || '',
-            publishedAt: m.publishedAt || '',
-            thumbnails: { high: { url: m.thumbnail } }
-          },
-          statistics: { viewCount: '0' },
-          contentDetails: { duration: 'PT10M0S' } // unknown duration — pass Shorts filter (≥5min)
-        };
-      });
-      console.log(`[YouTube] Using playlist-meta fallback for ${detailsData.items.length} videos`);
-    }
+    const detailsData = await detailsRes.json();
 
     const channelCounts = {};
 
@@ -2467,33 +2384,34 @@ async function fetchNewsData(env) {
               result = { ...result, translatedTitle: '' };
             }
 
-            // Do NOT use English raw extract as a successful summary — it pollutes KV with EN cards
-            // Require Chinese title and/or Chinese summary before accepting
-            if (result.summary && !/[\u4e00-\u9fff]/.test(result.summary)) {
-              result = { ...result, summary: '', qualityFlag: result.qualityFlag === 'ok' ? 'non_chinese_summary' : result.qualityFlag };
+            // Ultimate fallback: use raw description extract as summary
+            if (!result.summary) {
+              const extract = (item.description || item.summary || '').substring(0, 150);
+              if (extract.length > 20) {
+                result = {
+                  translatedTitle: result.translatedTitle || '',
+                  summary: extract,
+                  qualityFlag: 'raw_extract'
+                };
+              }
             }
 
-            let translatedTitle = result.translatedTitle || '';
-            if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
-              try {
-                const zh = await translateTitleWithWorkersAI(item.title, env);
-                if (zh && /[\u4e00-\u9fff]/.test(zh)) translatedTitle = zh;
-                else translatedTitle = '';
-              } catch (_e) { translatedTitle = ''; }
-            }
-            const summaryOk = result.summary && /[\u4e00-\u9fff]/.test(result.summary);
-            const titleOk = translatedTitle && /[\u4e00-\u9fff]/.test(translatedTitle);
-            // Only accept articles with Chinese title (summary preferred but title is required for display)
-            if (titleOk) {
+            if (result.summary || (result.translatedTitle && /[\u4e00-\u9fff]/.test(result.translatedTitle))) {
+              let translatedTitle = result.translatedTitle || '';
+              if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
+                try {
+                  const zh = await translateTitleWithWorkersAI(item.title, env);
+                  if (zh) translatedTitle = zh;
+                } catch (_e) {}
+
+              }
               summarizedNews.push({
                 ...item,
-                translatedTitle,
-                summary: summaryOk ? result.summary : '',
+                translatedTitle: translatedTitle || item.title,
+                summary: result.summary || '',
                 summarizedAt: new Date().toISOString()
               });
-              await setCachedArticle(item.url, { ...result, translatedTitle, summary: summaryOk ? result.summary : '' }, env);
-            } else {
-              console.log(`[fetchNewsData] Skip non-Chinese article: ${item.title.substring(0, 40)}...`);
+              await setCachedArticle(item.url, { ...result, translatedTitle }, env);
             }
           }
         } catch (e) {
@@ -2509,21 +2427,20 @@ async function fetchNewsData(env) {
     }
     console.log(`[fetchNewsData] Summarized ${summarizedNews.length}/${summarizeCount} articles (cached hits saved quota)`);
     
-    // Merge: use summarized (Chinese) articles first, then fill only if Chinese title available
+    // Merge: use summarized articles first, then fill remaining slots from deduped
     const newsToPick = [...summarizedNews];
     if (newsToPick.length < MAX_ARTICLES && deduped.length > 0) {
       const usedUrls = new Set(newsToPick.map(a => a.url));
       for (const item of deduped) {
         if (!usedUrls.has(item.url) && newsToPick.length < MAX_ARTICLES) {
+          // Ensure item has at least a Chinese title or original title
           if (!item.translatedTitle || !/[\u4e00-\u9fff]/.test(item.translatedTitle)) {
             try {
               const zh = await translateTitleWithWorkersAI(item.title, env);
-              if (zh && /[\u4e00-\u9fff]/.test(zh)) item.translatedTitle = zh;
+              if (zh) item.translatedTitle = zh;
             } catch (_e) {}
           }
-          if (item.translatedTitle && /[\u4e00-\u9fff]/.test(item.translatedTitle)) {
-            newsToPick.push(item);
-          }
+          newsToPick.push(item);
         }
       }
     }
@@ -2566,30 +2483,45 @@ var worker_default = {
       return;
     }
 
-    // 2026-07-15: DO NOT fetchNewsData here — Pi feeder (/api/ingest) is source of truth.
-    // Worker RSS path races feeder at 08:00 HKT and can overwrite Chinese cards with EN.
-    console.log(`[Cron] Tools/rankings only (news via Pi feeder): ${cronExpr}`);
-    let data = null;
-    try {
-      const oldRaw = await env.AI_NEWS_KV.get("news-data");
-      data = oldRaw ? JSON.parse(oldRaw) : { news: [], summarizedNews: [], tools: [], videos: [], blogPosts: [] };
-    } catch (_e) {
-      data = { news: [], summarizedNews: [], tools: [], videos: [], blogPosts: [] };
+    // News + Tools cron (YouTube handled by Pi cron hitting /trigger-youtube)
+    console.log(`[Cron] News+tools run: ${cronExpr}`);
+    const newsData = await fetchNewsData(env);
+    const toolsData = await fetchToolsData(env);
+    const data = { ...newsData, tools: toolsData };
+    data.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+    const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
+    data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
+    // Minimum article threshold: don't overwrite KV with incomplete data
+    // Require both: enough total articles AND enough AI-summarized ones
+    const newHasEnough = newsData.news && newsData.news.length >= 15 &&
+      newsData.summarizedNews && newsData.summarizedNews.length >= 5;
+    // Also check: don't replace good data with worse data
+    let oldHasChinese = false;
+    if (!newHasEnough) {
+      try {
+        const oldRaw = await env.AI_NEWS_KV.get("news-data");
+        if (oldRaw) {
+          const oldData = JSON.parse(oldRaw);
+          const oldCn = (oldData.summarizedNews || []).filter(s =>
+            s.translatedTitle && /[\u4e00-\u9fff]/.test(s.translatedTitle)
+          ).length;
+          oldHasChinese = oldCn >= 10;
+          if (oldHasChinese) {
+            console.log(`[Cron] KEPT old KV: new has ${newsData.summarizedNews?.length || 0} summarized, old had ${oldCn} Chinese`);
+          }
+        }
+      } catch (_e) {}
     }
-    try {
-      const toolsData = await fetchToolsData(env);
-      if (Array.isArray(toolsData) && toolsData.length > 0) data.tools = toolsData;
-    } catch (e) {
-      console.log(`[Cron] tools refresh failed: ${e.message}`);
+    if (newHasEnough || oldHasChinese) {
+      if (newHasEnough) {
+        await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+        console.log(`[Cron] KV updated: ${data.news.length} news, ${data.tools.length} tools`);
+      } else {
+        console.log(`[Cron] SKIPPED KV write: kept existing data (${newsData.summarizedNews?.length || 0} new vs good old data)`);
+      }
+    } else {
+      console.log(`[Cron] SKIPPED KV write: only ${data.news?.length || 0} articles (min 15 required)`);
     }
-    // Preserve existing news/summarizedNews/videos; only touch tools + optional rankings
-    try {
-      const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
-      if (blogPostsRaw) data.blogPosts = JSON.parse(blogPostsRaw);
-    } catch (_e) {}
-    // Do not bump updatedAt for tools-only — keeps "更新時間" tied to last news ingest
-    await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
-    console.log(`[Cron] tools refreshed; news preserved count=${(data.news||[]).length} cn=${countChineseTitles(data.news||[])}`);
     // Also refresh rankings on the midnight cron
     if (cronExpr === '0 0 * * *') {
       try {
@@ -2894,45 +2826,44 @@ var worker_default = {
                   
                   if (!result.summary) {
                     console.log(`[Ingest] Workers AI failed, trying OpenRouter: ${item.title.substring(0, 40)}...`);
-                    const prompt = `/no_think\n標題：${item.title}\n內容：${item.summary || ''}\n\n請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。\n\n格式：\n標題：[中文標題]\n總結：[總結內容]`;
+                    const prompt = `標題：${item.title}\n內容：${item.summary || ''}\n\n請用繁體中文總結內容（約3-4句話），並提供自然通順嘅中文標題（15-25字）。\n\n格式：\n標題：[中文標題]\n總結：[總結內容]`;
                     const orResult = await callOpenRouterFree(prompt, env.OPENROUTER_API_KEY, 500);
                     if (orResult.success) {
                       const text = orResult.text;
-                      const titleMatch = text.match(/標題[：:]\s*(.+?)(?:\n|$)/);
-                      const summaryMatch = text.match(/總結[：:]\s*([\s\S]+)/);
-                      let summary = summaryMatch ? summaryMatch[1].trim() : text.trim();
+                      const titleMatch = text.match(/標題[：:]\\s*(.+?)(?:\\n|$)/);
+                      const summaryMatch = text.match(/總結[：:]\\s*([\\s\\S]+)/);
+                      const summary = summaryMatch ? summaryMatch[1].trim() : text.trim();
                       let translatedTitle = titleMatch ? titleMatch[1].trim() : '';
                       if (translatedTitle.length > 40 || (translatedTitle.length > 0 && translatedTitle.length < 8)) {
                         translatedTitle = '';
                       }
-                      if (summary && !/[\u4e00-\u9fff]/.test(summary)) summary = '';
-                      if (translatedTitle && !/[\u4e00-\u9fff]/.test(translatedTitle)) translatedTitle = '';
                       result = { translatedTitle, summary, qualityFlag: 'openrouter' };
                       console.log(`[OpenRouter] Summarized: ${translatedTitle || item.title.substring(0, 40)}...`);
                     }
                   }
                   
-                  // No English raw_extract fallback — skip if not Chinese
-                  let translatedTitle = result.translatedTitle || '';
-                  if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
-                    try {
-                      const zh = await translateTitleWithWorkersAI(item.title, env);
-                      if (zh && /[\u4e00-\u9fff]/.test(zh)) translatedTitle = zh;
-                      else translatedTitle = '';
-                    } catch (_e) { translatedTitle = ''; }
+                  if (!result.summary) {
+                    const extract = (item.description || item.summary || '').substring(0, 150);
+                    if (extract.length > 20) {
+                      result = { translatedTitle: result.translatedTitle || '', summary: extract, qualityFlag: 'raw_extract' };
+                    }
                   }
-                  const summaryOk = result.summary && /[\u4e00-\u9fff]/.test(result.summary);
-                  const titleOk = translatedTitle && /[\u4e00-\u9fff]/.test(translatedTitle);
-                  if (titleOk) {
+                  
+                  if (result.summary || (result.translatedTitle && /[\u4e00-\u9fff]/.test(result.translatedTitle))) {
+                    let translatedTitle = result.translatedTitle || '';
+                    if (!translatedTitle || !/[\u4e00-\u9fff]/.test(translatedTitle)) {
+                      try {
+                        const zh = await translateTitleWithWorkersAI(item.title, env);
+                        if (zh) translatedTitle = zh;
+                      } catch (_e) {}
+                    }
                     summarizedNews.push({
                       ...item,
-                      translatedTitle,
-                      summary: summaryOk ? result.summary : '',
+                      translatedTitle: translatedTitle || item.title,
+                      summary: result.summary || '',
                       summarizedAt: new Date().toISOString()
                     });
-                    await setCachedArticle(item.url, { ...result, translatedTitle, summary: summaryOk ? result.summary : '' }, env);
-                  } else {
-                    console.log(`[Ingest] Skip non-Chinese: ${item.title.substring(0, 40)}...`);
+                    await setCachedArticle(item.url, { ...result, translatedTitle }, env);
                   }
                 }
               } catch (e) { console.log(`[Ingest] Batch summarize failed: ${e.message}`); }
@@ -2943,22 +2874,19 @@ var worker_default = {
             }
           }
           
-          // Merge summarized + remaining (only keep Chinese titles)
+          // Merge summarized + remaining
           const newsToPick = [...summarizedNews];
           if (newsToPick.length < topN) {
             const usedUrls = new Set(newsToPick.map(a => a.url));
             for (const item of withImages) {
               if (!usedUrls.has(item.url) && newsToPick.length < topN) {
-                if (!item.translatedTitle || !/[一-鿿]/.test(item.translatedTitle)) {
+                if (!item.translatedTitle || !/[\u4e00-\u9fff]/.test(item.translatedTitle)) {
                   try {
                     let zh = await translateTitleWithWorkersAI(item.title, env);
-                    if (zh && /[一-鿿]/.test(zh)) item.translatedTitle = zh;
+                    if (zh) item.translatedTitle = zh;
                   } catch (_e) {}
                 }
-                // Skip articles that still have no Chinese title
-                if (item.translatedTitle && /[一-鿿]/.test(item.translatedTitle)) {
-                  newsToPick.push(item);
-                }
+                newsToPick.push(item);
               }
             }
           }
@@ -2969,7 +2897,7 @@ var worker_default = {
             if (!displayTitle || !/[\u4e00-\u9fff]/.test(displayTitle)) {
               try {
                 let zh = await translateTitleWithWorkersAI(article.title, env);
-                if (zh && /[\u4e00-\u9fff]/.test(zh)) article.translatedTitle = zh;
+                if (zh) article.translatedTitle = zh;
               } catch (_e) {}
             }
           }
@@ -2992,46 +2920,69 @@ var worker_default = {
             data.videos = ytCached ? ytCached.filteredVideos : [];
           } catch (_e) { data.blogPosts = []; data.videos = []; }
           
-          // Chinese quality gate before KV write
-          const newCn = Math.max(countChineseTitles(newsToPick), countChineseTitles(summarizedNews));
-          let oldCn = 0;
-          try {
-            const oldRaw = await env.AI_NEWS_KV.get("news-data");
-            if (oldRaw) {
-              const oldData = JSON.parse(oldRaw);
-              oldCn = Math.max(countChineseTitles(oldData.news), countChineseTitles(oldData.summarizedNews));
-            }
-          } catch (_e) {}
-          const newHasEnough = hasEnoughChineseQuality(newsToPick, summarizedNews, 10, 8);
-          let kvWritten = false;
-          if (newHasEnough && (oldCn < 8 || newCn >= Math.min(8, oldCn))) {
-            await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
-            kvWritten = true;
-            console.log(`[/api/ingest] KV written: ${newsToPick.length} articles, ${newCn} Chinese, ${summarizedNews.length} summarized, ${ogFetchCount} OG`);
-          } else {
-            console.log(`[/api/ingest] SKIPPED KV write: newCn=${newCn} len=${newsToPick.length} oldCn=${oldCn}`);
-          }
+          // Write to KV
+          await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+          
+          console.log(`[/api/ingest] Done: ${newsToPick.length} articles, ${summarizedNews.length} summarized, ${ogFetchCount} OG fetches`);
           
           return new Response(JSON.stringify({
             success: true,
             articlesProcessed: newsToPick.length,
             summarizedCount: summarizedNews.length,
-            chineseCount: newCn,
             ogFetches: ogFetchCount,
-            kvWritten
+            kvWritten: true
           }, null, 2), { headers: { "Content-Type": "application/json" } });
         } catch (e) {
           return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
         }
       }
       if (url.pathname === "/trigger-news") {
-        // 2026-07-15: DISABLED — Worker-side RSS news fetch races Pi feeder and overwrites Chinese.
-        // Use POST /api/ingest (pikai-feeder.py) only.
-        return new Response(JSON.stringify({
-          success: false,
-          disabled: true,
-          message: 'Worker news fetch disabled. Use Pi feeder POST /api/ingest only.'
-        }, null, 2), { status: 410, headers: { "Content-Type": "application/json" } });
+        try {
+          const newsData = await fetchNewsData(env);
+          const toolsData = await fetchToolsData(env);
+          const data = { ...newsData, tools: toolsData };
+          data.updatedAt = new Date().toISOString();
+          const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
+          data.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
+          // Minimum article threshold: don't overwrite KV with incomplete data
+          const newHasEnough = newsData.news && newsData.news.length >= 15 &&
+            newsData.summarizedNews && newsData.summarizedNews.length >= 5;
+          let oldHasChinese = false;
+          if (!newHasEnough) {
+            try {
+              const oldRaw = await env.AI_NEWS_KV.get("news-data");
+              if (oldRaw) {
+                const oldData = JSON.parse(oldRaw);
+                const oldCn = (oldData.summarizedNews || []).filter(s =>
+                  s.translatedTitle && /[\u4e00-\u9fff]/.test(s.translatedTitle)
+                ).length;
+                oldHasChinese = oldCn >= 10;
+                if (oldHasChinese) {
+                  console.log(`[/trigger-news] KEPT old KV: new has ${newsData.summarizedNews?.length || 0} summarized, old had ${oldCn} Chinese`);
+                }
+              }
+            } catch (_e) {}
+          }
+          if (newHasEnough || oldHasChinese) {
+            if (newHasEnough) {
+              await env.AI_NEWS_KV.put("news-data", JSON.stringify(data));
+              console.log(`[/trigger-news] KV updated: ${data.news.length} news`);
+            } else {
+              console.log(`[/trigger-news] SKIPPED KV write: kept existing data`);
+            }
+          } else {
+            console.log(`[/trigger-news] SKIPPED KV write: only ${data.news?.length || 0} articles (min 15 required)`);
+          }
+          return new Response(JSON.stringify({
+            success: true,
+            newsCount: data.news.length,
+            toolsCount: data.tools.length,
+            updatedAt: data.updatedAt,
+            kvWritten: newHasEnough
+          }, null, 2), { headers: { "Content-Type": "application/json" } });
+        } catch (e) {
+          return new Response(JSON.stringify({ error: e.message, stack: e.stack }), { status: 500, headers: { "Content-Type": "application/json" } });
+        }
       }
       if (url.pathname === "/trigger-rankings") {
         try {
@@ -3048,23 +2999,20 @@ var worker_default = {
       }
       if (url.pathname === "/debug-news") {
         try {
-          // Read KV only — never live-fetch news
-          const raw = await env.AI_NEWS_KV.get("news-data");
-          const data = raw ? JSON.parse(raw) : { news: [] };
-          const news = data.news || data.summarizedNews || [];
-          const sample = news.slice(0, 5).map(item => ({
+          const newsData = await fetchNewsData(env);
+          const sample = newsData.news.slice(0, 3).map(item => ({
             title: item.title,
             titleZh: item.titleZh,
             translatedTitle: item.translatedTitle,
-            hasChinese: /[\u4e00-\u9fff]/.test(item.translatedTitle || item.titleZh || '')
+            hasTitleZh: !!item.titleZh,
+            hasTranslatedTitle: !!item.translatedTitle
           }));
           return new Response(JSON.stringify({
-            source: 'kv-only',
-            totalNews: news.length,
-            chineseCount: countChineseTitles(news),
-            updatedAt: data.updatedAt || null,
-            sample
-          }, null, 2), { headers: { "Content-Type": "application/json" } });
+            totalNews: newsData.news.length,
+            sample: sample
+          }, null, 2), {
+            headers: { "Content-Type": "application/json" }
+          });
         } catch (e) {
           return new Response(JSON.stringify({ error: e.message }), { status: 500 });
         }
@@ -3162,21 +3110,25 @@ async function submitPost() {
         return new Response(adminHtml, { headers: { "Content-Type": "text/html; charset=utf-8" } });
       }
       if (url.searchParams.has("refresh")) {
-        // 2026-07-15: NO live news fetch — serve KV only (same as normal load, no-cache headers)
-        console.log('[?refresh=1] KV-only reload (Worker news fetch disabled)');
-        const cachedRefresh = await env.AI_NEWS_KV.get("news-data");
-        if (cachedRefresh) {
-          const data2 = JSON.parse(cachedRefresh);
-          const ytCacheKey = 'youtube:videos:v25';
-          const ytCached = await readYouTubeCache(env, ytCacheKey);
-          if (ytCached && ytCached.filteredVideos.length > 0) data2.videos = ytCached.filteredVideos;
-          data2.orRankings = await readORRankings(env);
-          const html2 = generatePage(data2);
-          return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
-        }
-        return new Response(generatePage({ news: [], summarizedNews: [], tools: [], videos: [], blogPosts: [] }), {
-          headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" }
-        });
+        const newsData = await fetchNewsData(env);
+        const toolsData = await fetchToolsData(env);
+        const videosData = await fetchYouTubeVideos(env);
+      const data2 = { ...newsData, tools: toolsData, videos: videosData };
+      data2.updatedAt = (/* @__PURE__ */ new Date()).toISOString();
+      const blogPostsRaw = await env.AI_NEWS_KV.get("blog-posts");
+      data2.blogPosts = blogPostsRaw ? JSON.parse(blogPostsRaw) : [];
+      // Minimum article threshold: don't overwrite KV with incomplete data
+      // Prevents transient RSS failures from destroying good KV cache
+      if (newsData.news && newsData.news.length >= 15) {
+        await env.AI_NEWS_KV.put("news-data", JSON.stringify(data2));
+        console.log(`[?refresh=1] KV updated: ${newsData.news.length} news, ${toolsData?.length || 0} tools`);
+      } else {
+        console.log(`[?refresh=1] SKIPPED KV write: only ${newsData.news?.length || 0} articles (min 15 required)`);
+      }
+      const orRankings = await readORRankings(env);
+      data2.orRankings = orRankings;
+      const html2 = generatePage(data2);
+        return new Response(html2, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate", "Access-Control-Allow-Origin": "*" } });
       }
       const cached = await env.AI_NEWS_KV.get("news-data");
       if (cached) {
@@ -3271,7 +3223,6 @@ async function fetchORRankings(env) {
       return {
         rank: i + 1,
         name: v.slug,
-        rawTotal: total,  // keep raw number for progress bar
         total: total >= 1e12 ? (total / 1e12).toFixed(1) + 'T' :
               total >= 1e9 ? (total / 1e9).toFixed(1) + 'B' :
               (total / 1e6).toFixed(0) + 'M',
@@ -3518,58 +3469,49 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".rank-tab[data-rank=\"usage\"]::before { content: ''; width: 0.9rem; height: 0.9rem; display: inline-block; vertical-align: -0.15em; margin-right: 0.3rem; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 3v18h18'/%3E%3Cpath d='m19 9-5 5-4-4-3 3'/%3E%3C/svg%3E\"); background-size: contain; background-repeat: no-repeat; background-position: center; }";
   html += ".rank-tab[data-rank=\"intel\"]::before { content: ''; width: 0.9rem; height: 0.9rem; display: inline-block; vertical-align: -0.15em; margin-right: 0.3rem; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5a3 3 0 1 0-3 3c0 1.5-1.5 3-3 4.5v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9c0-1.5-1.5-3-3-4.5a3 3 0 0 0-3-3z'/%3E%3Cpath d='M9 8a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2H9z'/%3E%3C/svg%3E\"); background-size: contain; background-repeat: no-repeat; background-position: center; }";
   html += ".rank-tab.active::before { opacity: 1; }";
-  html += ".rank-section { background: #fff; border-radius: 18px; margin-bottom: 1.5rem; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #e8e8f0; max-width: 1200px; margin-left: auto; margin-right: auto; }";
-  html += ".rank-header { padding: 1.2rem 1.5rem 0.8rem; font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 0.6rem; background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 50%, #faf5ff 100%); border-bottom: 1px solid #eee; }";
-  html += ".rank-header-sub { font-size: 0.7rem; font-weight: 500; color: #999; margin-left: auto; letter-spacing: 0.3px; }";
-  html += ".rank-tabs { display: flex; gap: 0.5rem; padding: 0.7rem 1.5rem; border-bottom: 1px solid #f0f0f5; flex-wrap: wrap; }";
-  html += ".rank-tab { padding: 0.4rem 1rem; font-size: 0.82rem; font-weight: 600; border-radius: 20px; cursor: pointer; color: #888; background: #f0f2f5; transition: all 0.2s; border: none; white-space: nowrap; }";
+  html += ".rank-section { background: #fff; border-radius: 16px; margin-bottom: 1.2rem; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid #e8e8f0; max-width: 1200px; margin-left: auto; margin-right: auto; }";
+  html += ".rank-header { padding: 1rem 1.2rem 0.8rem; font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem; background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 50%, #faf5ff 100%); border-bottom: 1px solid #eee; }";
+  html += ".rank-header-sub { font-size: 0.65rem; font-weight: 500; color: #999; margin-left: auto; }";
+  html += ".rank-tabs { display: flex; gap: 0.4rem; padding: 0.6rem 1.2rem; border-bottom: 1px solid #f0f0f5; flex-wrap: wrap; }";
+  html += ".rank-tab { padding: 0.35rem 0.9rem; font-size: 0.78rem; font-weight: 600; border-radius: 20px; cursor: pointer; color: #888; background: #f0f2f5; transition: all 0.2s; border: none; white-space: nowrap; }";
   html += ".rank-tab:hover { background: #e0e3e8; transform: translateY(-1px); }";
   html += ".rank-tab.active { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; box-shadow: 0 2px 8px rgba(0,102,255,0.25); }";
   html += ".rank-content { display: none; padding: 0; }";
   html += ".rank-content.active { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }";
-  html += ".rank-content.active::-webkit-scrollbar { height: 4px; }";
-  html += ".rank-content.active::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }";
-  html += ".rank-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }";
-  html += ".rank-table th { background: #f8f9fb; color: #666; font-weight: 700; padding: 0.6rem 0.8rem; text-align: right; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; border-bottom: 2px solid #e8e8f0; }";
-  html += ".rank-table th:first-child { text-align: center; width: 2.8rem; }";
+  html += ".rank-content.active::-webkit-scrollbar { height: 3px; }";
+  html += ".rank-content.active::-webkit-scrollbar-thumb { background: #ddd; border-radius: 2px; }";
+  html += ".rank-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }";
+  html += ".rank-table th { background: #fafbfe; color: #888; font-weight: 600; padding: 0.45rem 0.6rem; text-align: right; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid #e8e8f0; }";
+  html += ".rank-table th:first-child { text-align: center; width: 2.5rem; }";
   html += ".rank-table th:nth-child(2) { text-align: left; }";
-  html += ".rank-table td { padding: 0.55rem 0.8rem; text-align: right; border-bottom: 1px solid #f0f0f3; transition: background 0.15s; }";
-  html += ".rank-table tr:hover td { background: #f5f7ff; }";
-  /* Row stripes */
-  html += ".rank-table tr:nth-child(even) td { background: #fafbfe; }";
-  html += ".rank-table tr:nth-child(even):hover td { background: #f0f4ff; }";
+  html += ".rank-table td { padding: 0.45rem 0.5rem; text-align: right; border-bottom: 1px solid #f5f5f8; transition: background 0.15s; }";
+  html += ".rank-table tr:hover td { background: #f8f9ff; }";
   html += ".rank-table td:first-child { text-align: center; }";
-  html += ".rank-table td:nth-child(2) { text-align: left; font-weight: 600; color: #0f172a; font-size: 0.82rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }";
+  html += ".rank-table td:nth-child(2) { text-align: left; font-weight: 600; color: #0f172a; font-size: 0.76rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; }";
   html += ".rank-table tr:last-child td { border-bottom: none; }";
   /* Medal badges */
-  html += ".rank-medal { display: inline-flex; align-items: center; justify-content: center; width: 1.8rem; height: 1.8rem; border-radius: 50%; font-size: 0.78rem; font-weight: 800; }";
-  html += ".rank-medal-1 { background: linear-gradient(135deg, #ffd700, #ffa500); color: #fff; box-shadow: 0 2px 8px rgba(255,165,0,0.35); }";
-  html += ".rank-medal-2 { background: linear-gradient(135deg, #e0e0e0, #b0b0b0); color: #fff; box-shadow: 0 2px 8px rgba(176,176,176,0.3); }";
-  html += ".rank-medal-3 { background: linear-gradient(135deg, #cd7f32, #a0522d); color: #fff; box-shadow: 0 2px 8px rgba(205,127,50,0.35); }";
-  html += ".rank-num { color: #999; font-weight: 700; font-size: 0.82rem; }";
+  html += ".rank-medal { display: inline-flex; align-items: center; justify-content: center; width: 1.6rem; height: 1.6rem; border-radius: 50%; font-size: 0.72rem; font-weight: 800; }";
+  html += ".rank-medal-1 { background: linear-gradient(135deg, #ffd700, #ffa500); color: #fff; box-shadow: 0 2px 6px rgba(255,165,0,0.3); }";
+  html += ".rank-medal-2 { background: linear-gradient(135deg, #e0e0e0, #b0b0b0); color: #fff; box-shadow: 0 2px 6px rgba(176,176,176,0.3); }";
+  html += ".rank-medal-3 { background: linear-gradient(135deg, #cd7f32, #a0522d); color: #fff; box-shadow: 0 2px 6px rgba(205,127,50,0.3); }";
+  html += ".rank-num { color: #aaa; font-weight: 600; font-size: 0.72rem; }";
   /* Provider tag */
-  html += ".rank-provider { display: inline-block; font-size: 0.62rem; font-weight: 700; color: #777; background: #eef0f5; border-radius: 4px; padding: 0.1rem 0.4rem; margin-right: 0.4rem; vertical-align: middle; text-transform: uppercase; letter-spacing: 0.03em; }";
-  /* Token value + progress bar */
-  html += ".rank-token-cell { display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; white-space: nowrap; }";
-  html += ".rank-token-val { font-size: 0.85rem; font-weight: 700; color: #0f172a; }";
-  html += ".rank-bar-wrap { width: 80px; height: 6px; background: #e8e8ef; border-radius: 3px; overflow: hidden; }";
+  html += ".rank-provider { display: inline-block; font-size: 0.58rem; font-weight: 600; color: #888; background: #f0f2f5; border-radius: 4px; padding: 0.08rem 0.32rem; margin-right: 0.35rem; vertical-align: middle; text-transform: uppercase; letter-spacing: 0.02em; }";
+  /* Progress bar (usage) */
+  html += ".rank-bar-wrap { width: 100%; max-width: 80px; height: 5px; background: #eee; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-left: 0.4rem; }";
   html += ".rank-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #0066ff, #7b2dff); transition: width 0.4s ease; }";
-  /* Trend badge */
-  html += ".rank-trend { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 5px; font-size: 0.75rem; font-weight: 700; white-space: nowrap; }";
-  html += ".rank-trend.up { background: #dcfce7; color: #16a34a; }";
-  html += ".rank-trend.down { background: #fef2f2; color: #dc2626; }";
-  html += ".rank-trend.flat { background: #f3f4f6; color: #9ca3af; }";
+  html += ".rank-change { font-size: 0.75rem; font-weight: 600; color: #22c55e; } .rank-change.negative { color: #ef4444; } .rank-change.dash { color: #888; }";
   /* Score bars (intel) */
-  html += ".rank-score-cell { display: flex; align-items: center; gap: 0.4rem; justify-content: flex-end; }";
-  html += ".rank-score-bar { width: 60px; height: 6px; background: #e8e8ef; border-radius: 3px; overflow: hidden; flex-shrink: 0; }";
+  html += ".rank-score-wrap { display: flex; align-items: center; gap: 0.2rem; justify-content: flex-end; }";
+  html += ".rank-score-bar { width: 28px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden; flex-shrink: 0; }";
   html += ".rank-score-fill { height: 100%; border-radius: 3px; }";
   html += ".rank-score-fill.intel { background: linear-gradient(90deg, #7b2dff, #a855f7); }";
   html += ".rank-score-fill.coding { background: linear-gradient(90deg, #0066ff, #3b82f6); }";
   html += ".rank-score-fill.agent { background: linear-gradient(90deg, #f59e0b, #f97316); }";
-  html += ".rank-score-val { font-size: 0.75rem; font-weight: 700; color: #444; min-width: 2rem; text-align: right; }";
-  html += ".rank-intel { position: relative; padding: 0.7rem 1.5rem 0.7rem 2rem; font-size: 0.68rem; color: #aaa; border-top: 1px solid #f0f0f0; }";
-  html += ".rank-intel::before { content: ''; position: absolute; left: 1.2rem; top: 50%; transform: translateY(-50%); width: 1em; height: 1em; background-image: url(\\\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='12' cy='5' rx='9' ry='3'/%3E%3Cpath d='M3 5v14c0 1.66 5.33 3 9 3s9-1.34 9-3V5'/%3E%3Cellipse cx='12' cy='19' rx='9' ry='3'/%3E%3C/svg%3E\\\") !important; background-size: contain; background-repeat: no-repeat; background-position: center; }";
-  html += "@media (max-width: 700px) { .card-grid { grid-template-columns: 1fr; margin: 0 0.5rem; padding: 0; } .summarized-grid { margin: 0 0.5rem; padding: 0; } .blog-list { margin: 0 0.5rem; padding: 0; } .knowledge-container { padding: 0 0.5rem; } .wc-section, .rank-section { margin-left: 0.5rem; margin-right: 0.5rem; } .tabs { border-radius: 30px; overflow-x: auto; -webkit-overflow-scrolling: touch; justify-content: flex-start; padding-left: 0.5rem; } .tab { padding: 0.5rem 0.6rem; font-size: 0.8rem; gap: 0.3rem; min-width: max-content; flex: none; white-space: nowrap; line-height: 1.2; } .tab-icon { font-size: 1.1rem; } .tab-count { font-size: 0.65rem; padding: 0.1rem 0.3rem; } h1 { font-size: 1.8rem; } .rankings-card-header { font-size: 0.9rem; padding: 0.7rem 0.8rem; } .rankings-table td { padding: 0.4rem 0.4rem; font-size: 0.75rem; } .rankings-table .provider-cell { font-size: 0.68rem; } .knowledge-card { margin-bottom: 1rem; } .logo-svg { width: 176px; } .rank-table td { padding: 0.4rem 0.5rem; font-size: 0.72rem; } .rank-table th { padding: 0.4rem 0.5rem; font-size: 0.62rem; } .rank-table td:nth-child(2) { font-size: 0.72rem; max-width: 30vw; } .rank-provider { font-size: 0.52rem; } .rank-token-val { font-size: 0.75rem; } .rank-score-bar { width: 35px; } .rank-score-val { font-size: 0.68rem; min-width: 1.6rem; } .rank-bar-wrap { width: 55px; } .rank-medal { width: 1.4rem; height: 1.4rem; font-size: 0.65rem; } .rank-trend { font-size: 0.68rem; } }";
+  html += ".rank-score-val { font-size: 0.68rem; font-weight: 600; color: #666; min-width: 1.6rem; text-align: right; }";
+  html += ".rank-intel { position: relative; padding: 0.6rem 1.2rem 0.6rem 1.8rem; font-size: 0.65rem; color: #aaa; border-top: 1px solid #f0f0f0; }";
+  html += ".rank-intel::before { content: ''; position: absolute; left: 1.2rem; top: 50%; transform: translateY(-50%); width: 1em; height: 1em; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cellipse cx='12' cy='5' rx='9' ry='3'/%3E%3Cpath d='M3 5v14c0 1.66 5.33 3 9 3s9-1.34 9-3V5'/%3E%3Cellipse cx='12' cy='19' rx='9' ry='3'/%3E%3C/svg%3E\") !important; background-size: contain; background-repeat: no-repeat; background-position: center; }";
+  html += "@media (max-width: 700px) { .card-grid { grid-template-columns: 1fr; margin: 0 0.5rem; padding: 0; } .summarized-grid { margin: 0 0.5rem; padding: 0; } .blog-list { margin: 0 0.5rem; padding: 0; } .knowledge-container { padding: 0 0.5rem; } .wc-section, .rank-section { margin-left: 0.5rem; margin-right: 0.5rem; } .tabs { border-radius: 30px; overflow-x: auto; -webkit-overflow-scrolling: touch; justify-content: flex-start; padding-left: 0.5rem; } .tab { padding: 0.5rem 0.6rem; font-size: 0.8rem; gap: 0.3rem; min-width: max-content; flex: none; white-space: nowrap; line-height: 1.2; } .tab-icon { font-size: 1.1rem; } .tab-count { font-size: 0.65rem; padding: 0.1rem 0.3rem; } h1 { font-size: 1.8rem; } .rankings-card-header { font-size: 0.9rem; padding: 0.7rem 0.8rem; } .rankings-table td { padding: 0.4rem 0.4rem; font-size: 0.75rem; } .rankings-table .provider-cell { font-size: 0.68rem; } .knowledge-card { margin-bottom: 1rem; } .logo-svg { width: 176px; } .rank-table td { padding: 0.35rem 0.35rem; font-size: 0.7rem; } .rank-table th { padding: 0.35rem 0.35rem; font-size: 0.6rem; } .rank-table td:nth-child(2) { font-size: 0.68rem; max-width: 30vw; } .rank-provider { font-size: 0.5rem; } .rank-score-bar { width: 18px; } .rank-score-val { font-size: 0.6rem; min-width: 1.2rem; } .rank-bar-wrap { max-width: 50px; } .rank-medal { width: 1.2rem; height: 1.2rem; font-size: 0.6rem; } }";
   html += "</style>";
   html += "</head>";
   html += '<body>';
@@ -3596,7 +3538,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   // OpenRouter Model Rankings — premium redesign
   if (orRankings && orRankings.usage && orRankings.usage.length > 0) {
     var maxUsage = 0;
-    orRankings.usage.forEach(function(r) { if (r.rawTotal && r.rawTotal > maxUsage) maxUsage = r.rawTotal; });
+    orRankings.usage.forEach(function(r) { if (r.total > maxUsage) maxUsage = r.total; });
     var maxIntel = 100, maxCoding = 100, maxAgent = 100;
     if (orRankings.intelligence) {
       orRankings.intelligence.forEach(function(r) {
@@ -3621,13 +3563,10 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       var provider = hasSlash ? r.name.split('/')[0] || '' : '';
       var medal = r.rank === 1 ? '<span class="rank-medal rank-medal-1">1</span>' : r.rank === 2 ? '<span class="rank-medal rank-medal-2">2</span>' : r.rank === 3 ? '<span class="rank-medal rank-medal-3">3</span>' : '<span class="rank-num">' + r.rank + '</span>';
       var fmtT = typeof r.total === 'string' ? r.total : (r.total >= 1e9 ? (r.total/1e9).toFixed(1)+'B' : r.total >= 1e6 ? (r.total/1e6).toFixed(1)+'M' : r.total >= 1e3 ? (r.total/1e3).toFixed(1)+'K' : r.total);
-      var trendUp = r.change && r.change.indexOf('↑') >= 0;
-      var trendDown = r.change && r.change.indexOf('↓') >= 0;
-      var trendClass = trendUp ? 'up' : trendDown ? 'down' : 'flat';
-      var changeHtml = r.change ? '<span class="rank-trend ' + trendClass + '">' + r.change + '</span>' : '';
-      var pct = maxUsage > 0 ? (r.rawTotal / maxUsage * 100) : 0;
-      if (isNaN(pct)) pct = 0;
-      html += '<tr><td>' + medal + '</td><td>' + (provider ? '<span class="rank-provider">' + provider + '</span>' : '') + displayName + '</td><td><div class="rank-token-cell"><span class="rank-token-val">' + fmtT + '</span><span class="rank-bar-wrap"><span class="rank-bar-fill" style="width:' + Math.round(pct) + '%"></span></span></div></td><td>' + changeHtml + '</td></tr>';
+      var changeHtml = r.change ? '<span class="rank-change' + (r.change.indexOf('↓') >= 0 ? ' negative' : r.change === '—' ? ' dash' : '') + '">' + r.change + '</span>' : '';
+      var pct = typeof maxUsage === 'string' ? 50 : (r.total / maxUsage * 100);
+      if (isNaN(pct)) pct = 50;
+      html += '<tr><td>' + medal + '</td><td>' + (provider ? '<span class="rank-provider">' + provider + '</span>' : '') + displayName + '</td><td><span style="display:inline-flex;align-items:center;gap:0.3rem">' + fmtT + '<span class="rank-bar-wrap"><span class="rank-bar-fill" style="width:' + Math.round(pct) + '%"></span></span></span></td><td>' + changeHtml + '</td></tr>';
     });
     html += '</table></div>';
     // Intel tab
@@ -3642,9 +3581,9 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
         var cPct = Math.round(r.coding / maxCoding * 100);
         var aPct = Math.round(r.agent / maxAgent * 100);
         html += '<tr><td>' + medal + '</td><td><span class="rank-provider">' + provider + '</span>' + displayName + '</td>';
-        html += '<td><div class="rank-score-cell"><span class="rank-score-bar"><span class="rank-score-fill intel" style="width:' + iPct + '%"></span></span><span class="rank-score-val">' + r.intel + '</span></div></td>';
-        html += '<td><div class="rank-score-cell"><span class="rank-score-bar"><span class="rank-score-fill coding" style="width:' + cPct + '%"></span></span><span class="rank-score-val">' + r.coding + '</span></div></td>';
-        html += '<td><div class="rank-score-cell"><span class="rank-score-bar"><span class="rank-score-fill agent" style="width:' + aPct + '%"></span></span><span class="rank-score-val">' + r.agent + '</span></div></td>';
+        html += '<td><div class="rank-score-wrap"><span class="rank-score-bar"><span class="rank-score-fill intel" style="width:' + iPct + '%"></span></span><span class="rank-score-val">' + r.intel + '</span></div></td>';
+        html += '<td><div class="rank-score-wrap"><span class="rank-score-bar"><span class="rank-score-fill coding" style="width:' + cPct + '%"></span></span><span class="rank-score-val">' + r.coding + '</span></div></td>';
+        html += '<td><div class="rank-score-wrap"><span class="rank-score-bar"><span class="rank-score-fill agent" style="width:' + aPct + '%"></span></span><span class="rank-score-val">' + r.agent + '</span></div></td>';
         html += '</tr>';
       });
     }
@@ -3727,13 +3666,13 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
         }
         html += '<div class="summarized-content">';
         html += '<div class="summarized-source">' + escapeHtml(article.source ? article.source.replace(/^https?:\/\//, '').replace(/\/.*$/, '') : 'AI News') + '</div>';
-        html += '<div class="summarized-title">' + escapeHtml((function(a){ var t=a.translatedTitle||a.titleZh||''; if(/[\u4e00-\u9fff]/.test(t)) return t; var en=a.title||''; return /[\u4e00-\u9fff]/.test(en)?en:'（翻譯處理中）'; })(article)) + '</div>';
+        html += '<div class="summarized-title">' + escapeHtml(article.translatedTitle || article.titleZh || article.title) + '</div>';
         if (article.summary) {
           let cleanSummary = article.summary.replace(/^標題[：:]\s*[\s\S]*?(?=\n{2,}|$)/, '').trim();
           cleanSummary = cleanSummary.replace(/\n?標題[：:]\s*.+?\n/, '\n').trim();
           html += '<div class="summarized-text">' + escapeHtml(cleanSummary) + '</div>';
         }
-        html += '<div class="news-ai-wrap"><button class="news-ai-btn" data-url="' + escapeHtml(article.url) + '" data-title="' + escapeHtml((function(a){ var t=a.translatedTitle||a.titleZh||''; if(/[\u4e00-\u9fff]/.test(t)) return t; var en=a.title||''; return /[\u4e00-\u9fff]/.test(en)?en:'（翻譯處理中）'; })(article)) + '" onclick="event.stopPropagation();fetchNewsSummary(this)">🧠 AI Digest</button><div class="news-ai-summary"><div class="news-ai-body"></div></div><div class="news-ai-error"></div></div>';
+        html += '<div class="news-ai-wrap"><button class="news-ai-btn" data-url="' + escapeHtml(article.url) + '" data-title="' + escapeHtml(article.translatedTitle || article.titleZh || article.title) + '" onclick="event.stopPropagation();fetchNewsSummary(this)">🧠 AI Digest</button><div class="news-ai-summary"><div class="news-ai-body"></div></div><div class="news-ai-error"></div></div>';
         html += '</div></div>';
       }
     });
