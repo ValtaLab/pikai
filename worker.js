@@ -3380,6 +3380,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".tab:not(.active) .tab-count { background: #f1f5f9; color: #94a3b8; }";
   html += ".content-section { display: none !important; visibility: hidden !important; height: 0 !important; max-height: 0 !important; overflow: hidden !important; opacity: 0 !important; position: absolute !important; left: -9999px !important; }";
   html += ".content-section.active { display: block !important; visibility: visible !important; height: auto !important; max-height: none !important; overflow: visible !important; opacity: 1 !important; position: static !important; left: auto !important; padding-top: 1.5rem; }";
+  html += ".section-news.active { padding-top: 0.5rem; }";
   html += ".card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.25rem; max-width: 1200px; margin: 0 auto; padding: 0 1.5rem; }";
   html += ".card { background: #ffffff; border-radius: 18px; border: 1px solid #e2e8f0; overflow: hidden; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px -2px rgba(0,0,0,0.04); display: flex; flex-direction: column; height: 100%; }";
   html += ".card:hover { transform: translateY(-3px); box-shadow: 0 4px 20px -4px rgba(0,0,0,0.08), 0 8px 32px -8px rgba(0,0,0,0.06); border-color: #e2e8f0; }";
@@ -3519,9 +3520,9 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".rank-tab[data-rank=\"intel\"]::before { content: ''; width: 0.9rem; height: 0.9rem; display: inline-block; vertical-align: -0.15em; margin-right: 0.3rem; background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5a3 3 0 1 0-3 3c0 1.5-1.5 3-3 4.5v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9c0-1.5-1.5-3-3-4.5a3 3 0 0 0-3-3z'/%3E%3Cpath d='M9 8a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2H9z'/%3E%3C/svg%3E\"); background-size: contain; background-repeat: no-repeat; background-position: center; }";
   html += ".rank-tab.active::before { opacity: 1; }";
   html += ".rank-section { background: #fff; border-radius: 18px; margin-bottom: 1.5rem; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.06); border: 1px solid #e8e8f0; max-width: 1200px; margin-left: auto; margin-right: auto; }";
-  html += ".rank-header { padding: 1.2rem 1.5rem 0.8rem; font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 0.6rem; background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 50%, #faf5ff 100%); border-bottom: 1px solid #eee; }";
+  html += ".rank-header { padding: 0.85rem 1.5rem 0.45rem; font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 0.6rem; background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 50%, #faf5ff 100%); border-bottom: 1px solid #eee; }";
   html += ".rank-header-sub { font-size: 0.7rem; font-weight: 500; color: #999; margin-left: auto; letter-spacing: 0.3px; }";
-  html += ".rank-tabs { display: flex; gap: 0.5rem; padding: 0.7rem 1.5rem; border-bottom: 1px solid #f0f0f5; flex-wrap: wrap; }";
+  html += ".rank-tabs { display: flex; gap: 0.5rem; padding: 0.45rem 1.5rem 0.55rem; border-bottom: 1px solid #f0f0f5; flex-wrap: wrap; }";
   html += ".rank-tab { padding: 0.4rem 1rem; font-size: 0.82rem; font-weight: 600; border-radius: 20px; cursor: pointer; color: #888; background: #f0f2f5; transition: all 0.2s; border: none; white-space: nowrap; }";
   html += ".rank-tab:hover { background: #e0e3e8; transform: translateY(-1px); }";
   html += ".rank-tab.active { background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; box-shadow: 0 2px 8px rgba(0,102,255,0.25); }";
@@ -3606,7 +3607,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       });
     }
     html += '<div class="rank-section">';
-    html += '<div class="rank-header">Model 排行榜<span class="rank-header-sub">OpenRouter · 本週</span></div>';
+    html += '<div class="rank-header">Model 排行榜</div>';
     html += '<div class="rank-tabs">';
     html += '<button class="rank-tab active" data-rank="usage" onclick="switchRankTab(\'usage\',this)">使用量</button>';
     html += '<button class="rank-tab" data-rank="intel" onclick="switchRankTab(\'intel\',this)">智力</button>';
