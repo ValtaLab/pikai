@@ -17,7 +17,8 @@ last_update_by: HermesBPi
 ### 2026-07-16 | 影片 24h 窗 + 更多影片 + 新聞 60 張
 - YouTube：發佈窗口由 7 日改 **24 小時**（fetch + KV 讀取 `filterAllowedYouTubeVideos`）
 - 每頻道 playlist 拉 **5** 條、每頻道最多保留 **5** 條；首頁唔再 cap 15 條影片
-- `pikai-feeder.py` **TOP_N 50→60**
+- `pikai-feeder.py` **TOP_N 50→60**；已手動跑 feeder 寫入 60 篇
+- Deploy: b087cd7
 
 ### 2026-07-16 | 排行榜 UI 間距與標籤
 - 今日必讀 tab 下 padding-top 改 0.5rem，排行榜卡片貼近主 tab
