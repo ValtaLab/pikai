@@ -13,6 +13,12 @@ last_update_by: HermesBPi
 
 
 
+
+### 2026-07-16 | Ranking card 去掉公司名
+- 刪除 usage/intel 嘅 `.rank-provider` 標籤（tencent/deepseek/…）
+- Model 欄唔再 ellipsis 截斷，可換行顯示全名
+- 騰出空間畀完整 model name
+
 ### 2026-07-15 08:25 | Kill ALL Worker news-fetch crons
 - **Root**: `ai-news-digest` shared KV `b8dfffba...` with **3 crons** still live (0/4/10 UTC) — overwrote pikai Chinese news
 - Cleared `ai-news-digest` schedules → [] via API; deployed NOOP worker
