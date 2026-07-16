@@ -17,7 +17,7 @@ last_update_by: HermesBPi
 ### 2026-07-16 | YouTube 卡片內嵌播放
 - 撳縮圖／▶ 喺卡片 16:9 區直接 embed 播放（lazy，唔預載 iframe）
 - 同時只播一條；右上角「全屏」仍可用 modal
-- Deploy: (pending)
+- Deploy: dab6fc0
 
 ### 2026-07-16 | 影片 24h 窗 + 更多影片 + 新聞 60 張
 - YouTube：發佈窗口由 7 日改 **24 小時**（fetch + KV 讀取 `filterAllowedYouTubeVideos`）

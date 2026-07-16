@@ -3728,7 +3728,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
         } else {
           html += '<div class="summarized-image-placeholder">🎬</div>';
         }
-        html += '<button type="button" class="video-play-overlay" aria-label="在卡片內播放"><span>▶</span></button>';
+        html += '<button type="button" class="video-play-overlay" aria-label="在卡片內播放" onclick="playVideoInCard(event, this.parentElement)"><span>▶</span></button>';
         html += '</div>';
         html += '<div class="summarized-content">';
         html += '<div class="summarized-source"><span class="yt-badge"><svg viewBox="0 0 24 16" fill="white"><path d="M23.5 2.5c-.3-1-1-1.8-2-2C19.4 0 12 0 12 0S4.6 0 2.5.5c-1 .2-1.7 1-2 2C0 4.7 0 8 0 8s0 3.3.5 5.5c.3 1 1 1.8 2 2C4.6 16 12 16 12 16s7.4 0 9.5-.5c1-.2 1.7-1 2-2C24 11.3 24 8 24 8s0-3.3-.5-5.5zM9.5 11.5V4.5L16 8l-6.5 3.5z"/></svg> YouTube</span>' + escapeHtml(video.channel) + ' · ' + escapeHtml(video.viewCount || '') + ' · ' + escapeHtml(video.duration || '') + '</div>';
@@ -4026,7 +4026,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += '<button class="back-to-top" id="backToTop" aria-label="\u8FD4\u56DE\u9802\u90E8">\u2191</button>';
   html += "</div>";
   html += "<script>";
-  html += 'function resetVideoMedia(wrap){if(!wrap)return;var id=wrap.dataset.videoId||"";var thumb=wrap.dataset.thumb||"";wrap.classList.remove("is-playing");var inner="";if(thumb){inner+=\'<img class="summarized-image" src="\'+thumb+\'" alt="" onerror="this.style.display=\\\'none\\\'">\';}else{inner+=\'<div class="summarized-image-placeholder">🎬</div>\';}inner+=\'<button type="button" class="video-play-overlay" aria-label="在卡片內播放"><span>▶</span></button>\';wrap.innerHTML=inner;}';
+  html += 'function resetVideoMedia(wrap){if(!wrap)return;var id=wrap.dataset.videoId||"";var thumb=wrap.dataset.thumb||"";wrap.classList.remove("is-playing");var inner="";if(thumb){inner+=\'<img class="summarized-image" src="\'+thumb+\'" alt="" onerror="this.style.display=\\\'none\\\'">\';}else{inner+=\'<div class="summarized-image-placeholder">🎬</div>\';}inner+=\'<button type="button" class="video-play-overlay" aria-label="在卡片內播放" onclick="playVideoInCard(event, this.parentElement)"><span>▶</span></button>\';wrap.innerHTML=inner;}';
   html += 'function playVideoInCard(e,wrap){if(e.target.closest(".video-ai-wrap"))return;e.stopPropagation();var id=wrap&&wrap.dataset.videoId;if(!id)return;document.querySelectorAll(".video-media.is-playing").forEach(function(other){if(other!==wrap)resetVideoMedia(other);});if(wrap.classList.contains("is-playing"))return;wrap.classList.add("is-playing");wrap.innerHTML=\'<iframe class="video-inline-iframe" src="https://www.youtube-nocookie.com/embed/\'+id+\'?autoplay=1&rel=0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share" allowfullscreen></iframe><button type="button" class="video-expand-btn" onclick="event.stopPropagation();openVideoModal(\\\'\'+id+\'\\\')">全屏</button>\';}';
   html += 'function openVideoModal(id){var m=document.getElementById("videoModal"),f=document.getElementById("videoIframe");f.src="https://www.youtube.com/embed/"+id+"?autoplay=1";m.style.display="flex";document.body.style.overflow="hidden";}';
   html += 'function closeVideoModal(){var m=document.getElementById("videoModal"),f=document.getElementById("videoIframe");f.src="";m.style.display="none";document.body.style.overflow="";}';
