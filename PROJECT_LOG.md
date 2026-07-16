@@ -18,7 +18,8 @@ last_update_by: HermesBPi
 - 撳縮圖／▶ 喺卡片 16:9 區直接 embed 播放（lazy，唔預載 iframe）
 - 同時只播一條；右上角「全屏」仍可用 modal
 - 單次點擊播放：overlay 改 div + pointer-events:none，移除全屏掣
-- Deploy: dab6fc0
+- 真正 autoplay：預置空 iframe，click 內同步設 `src`（保留手勢）；手機 coarse pointer 加 `mute=1`
+- Deploy: 177656a
 
 ### 2026-07-16 | 影片 24h 窗 + 更多影片 + 新聞 60 張
 - YouTube：發佈窗口由 7 日改 **24 小時**（fetch + KV 讀取 `filterAllowedYouTubeVideos`）
