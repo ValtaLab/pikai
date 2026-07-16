@@ -29,12 +29,22 @@ const _youtubeWhitelistIds = new Set([
   'UCXNviQjBONXljxkJzNV-Xbw', // The Robot Brains Podcast
 ]);
 
+const YOUTUBE_PUBLISH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
 function filterAllowedYouTubeVideos(videos = [], logPrefix = "[YouTube]") {
+  const cutoff = Date.now() - YOUTUBE_PUBLISH_WINDOW_MS;
   return (Array.isArray(videos) ? videos : []).filter((video) => {
     if (!video) return false;
     if (!_youtubeWhitelistIds.has(video.channelId) || _blacklistIds.has(video.channelId)) {
       console.log(`${logPrefix} REJECTED non-whitelist: "${video.channel || "Unknown"}" (${video.channelId || "missing-channel-id"})`);
       return false;
+    }
+    if (video.publishedAt) {
+      const pub = new Date(video.publishedAt).getTime();
+      if (!Number.isNaN(pub) && pub < cutoff) {
+        console.log(`${logPrefix} REJECTED older than 24h: "${video.channel}" (${video.publishedAt})`);
+        return false;
+      }
     }
     return true;
   });
@@ -1779,7 +1789,7 @@ async function fetchYouTubeVideos(env, force = false) {
     }
     */
 
-    const fortyEightHoursAgo = new Date(Date.now() - 168 * 60 * 60 * 1000).toISOString();
+    const twentyFourHoursAgo = new Date(Date.now() - YOUTUBE_PUBLISH_WINDOW_MS).toISOString();
 
     const CHANNELS = [
       ['UCP7jMXSY2xbc3KCAE0MHQ-A', 'Google DeepMind'],
@@ -1865,7 +1875,7 @@ async function fetchYouTubeVideos(env, force = false) {
           for (const item of (playlistData.items || [])) {
             const sn = item.snippet || {};
             if (sn.channelId !== channelId) continue;
-            if (sn.publishedAt && new Date(sn.publishedAt) < new Date(fortyEightHoursAgo)) continue;
+            if (sn.publishedAt && new Date(sn.publishedAt) < new Date(twentyFourHoursAgo)) continue;
             const vid = sn.resourceId?.videoId;
             if (!vid) continue;
             ids.push(vid);
@@ -1894,7 +1904,7 @@ async function fetchYouTubeVideos(env, force = false) {
     const batchSize = 5;
     for (let i = 0; i < channelsToFetch.length; i += batchSize) {
       const batch = channelsToFetch.slice(i, i + batchSize);
-      const batchResults = await Promise.all(batch.map(([id, name]) => searchChannelVideos(id, name, 3)));
+      const batchResults = await Promise.all(batch.map(([id, name]) => searchChannelVideos(id, name, 5)));
       batchResults.forEach(ids => allVideoIds.push(...ids));
     }
 
@@ -1984,11 +1994,11 @@ async function fetchYouTubeVideos(env, force = false) {
         return false;
       }
 
-      // Per-channel limit: max 3 videos per channel
+      // Per-channel limit: max 5 videos per channel (24h window)
       const ch = video.channel || '';
       const count = channelCounts[ch] || 0;
-      if (count >= 3) {
-        console.log(`[YouTube] Rejected (dup channel max 3): ${video.channel}`);
+      if (count >= 5) {
+        console.log(`[YouTube] Rejected (dup channel max 5): ${video.channel}`);
         return false;
       }
       channelCounts[ch] = count + 1;
@@ -2022,13 +2032,13 @@ async function fetchYouTubeVideos(env, force = false) {
       return bViews - aViews;
     });
 
-    // Filter: reject videos older than 48 hours
-    const cutoffDate = new Date(Date.now() - 168 * 60 * 60 * 1000);
+    // Filter: reject videos older than 24 hours
+    const cutoffDate = new Date(Date.now() - YOUTUBE_PUBLISH_WINDOW_MS);
     const recentVideos = videos.filter(video => {
       const pubDate = new Date(video.publishedAt);
       return pubDate >= cutoffDate;
     });
-    console.log(`[YouTube] Filtered to ${recentVideos.length} recent videos (7 days)`);
+    console.log(`[YouTube] Filtered to ${recentVideos.length} recent videos (24h)`);
 
     // Batch translate video titles to Chinese (single Workers AI call)
     const needTranslation = recentVideos.filter(v => v.title && !/[\u4e00-\u9fff]/.test(v.title));
@@ -3686,7 +3696,7 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
       if (seenVideoIds.has(v.id)) return false;
       seenVideoIds.add(v.id);
       return true;
-    }).slice(0, 15).forEach(function(video) {
+    }).forEach(function(video) {
       combinedItems.push({ type: 'video', data: video });
     });
   }

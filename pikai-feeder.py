@@ -18,7 +18,7 @@ import threading
 import random
 
 WORKER_URL = "https://pikai.isearover.workers.dev/api/ingest"
-TOP_N = 50  # Reduced from 100 — Worker AI wall-clock budget (2026-07-14)
+TOP_N = 60  # Homepage card cap (2026-07-16, was 50)
 
 # Exact copy from worker.js
 NEWS_SOURCES = [
