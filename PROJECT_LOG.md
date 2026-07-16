@@ -14,12 +14,16 @@ last_update_by: HermesBPi
 
 
 
+### 2026-07-16 | 影片篩選：保留科技／數碼
+- 補齊 10 個教學頻道 ID 入 `_youtubeWhitelistIds`（之前 fetch 到但被 filter 剔走）
+- Music/Entertainment 類別只剔非科技／數碼標題；MKBHD、LTT 等數碼評測保留
+
 ### 2026-07-16 | YouTube 卡片內嵌播放
 - 撳縮圖／▶ 喺卡片 16:9 區直接 embed 播放（lazy，唔預載 iframe）
 - 同時只播一條；右上角「全屏」仍可用 modal
 - 單次點擊播放：overlay 改 div + pointer-events:none，移除全屏掣
 - 真正 autoplay：預置空 iframe，click 內同步設 `src`（保留手勢）；手機 coarse pointer 加 `mute=1`
-- Deploy: 177656a
+- Deploy: e0e5aa3
 
 ### 2026-07-16 | 影片 24h 窗 + 更多影片 + 新聞 60 張
 - YouTube：發佈窗口由 7 日改 **24 小時**（fetch + KV 讀取 `filterAllowedYouTubeVideos`）

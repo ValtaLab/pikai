@@ -27,9 +27,47 @@ const _youtubeWhitelistIds = new Set([
   'UCYlq-KmwPjc1DtsGmthFqSQ', // Figure (AI robotics)
   'UCN-StetwWuVYf-MU2_NVj4A', // Agility Robotics
   'UCXNviQjBONXljxkJzNV-Xbw', // The Robot Brains Podcast
+  // AI tutorial channels (must match CHANNELS in fetchYouTubeVideos)
+  'UCfzlCWGWYFIQi7jB3HjP4Lg', // Sentdex
+  'UCHqRxy1Cb6T9i5DE5hEZ41Q', // Nicholas Renotte
+  'UCr4cA3DoP3QsNB5iY5hWq8g', // Tech With Tim
+  'UCtatfZMf-8d3Q1Ja3_xRmVg', // AssemblyAI
+  'UCpMpGq47P4lR4oSjcP_jj0w', // Arxiv Insights
+  'UCkz6p2TqAtR4JoNpGJ6cB8Q', // Aladdin Persson
+  'UCIqOVe3Nb2A1xQ1Pv-3MF3g', // CodeEmporium
+  'UCfGGKhcT2-NSSI0h_1LB3pQ', // Sam Witteveen
+  'UCpE0CgWjD3R2dOguFfDhXAg', // James Briggs
+  'UC6V4lMvKtLp9lrB7xZOJh5g', // Patrick Loeber
 ]);
 
 const YOUTUBE_PUBLISH_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** Keep tech/digital videos even when YouTube tags them Music (10) or Entertainment (24). */
+function isTechOrDigitalVideo(title = '', description = '') {
+  const text = `${title} ${description}`.toLowerCase();
+  const keywords = [
+    'tech', 'technology', 'digital', 'computer', 'software', 'hardware', 'gpu', 'cpu', 'chip',
+    'phone', 'iphone', 'android', 'laptop', 'pc', 'mac', 'tablet', 'camera', 'gadget', 'device',
+    'ai', 'artificial intelligence', 'machine learning', 'llm', 'gpt', 'robot', 'robotics',
+    'coding', 'programming', 'developer', 'api', 'cloud', 'cyber', 'security', 'data',
+    'semiconductor', 'nvidia', 'apple', 'google', 'microsoft', 'openai', 'anthropic',
+    '科技', '數碼', '数码', '電腦', '电脑', '手機', '手机', '晶片', '芯片', '人工智能', '機器人', '机器人',
+    'review', 'unbox', 'benchmark', 'tutorial', 'explained', 'hands-on', 'deep dive'
+  ];
+  return keywords.some((kw) => text.includes(kw));
+}
+__name(isTechOrDigitalVideo, 'isTechOrDigitalVideo');
+
+function shouldRejectYouTubeCategory(categoryId, title, description) {
+  if (!categoryId) return false;
+  // Music / Entertainment: drop only when clearly not tech/digital
+  if (categoryId === '10' || categoryId === '24') {
+    if (isTechOrDigitalVideo(title, description)) return false;
+    return true;
+  }
+  return false;
+}
+__name(shouldRejectYouTubeCategory, 'shouldRejectYouTubeCategory');
 
 function filterAllowedYouTubeVideos(videos = [], logPrefix = "[YouTube]") {
   const cutoff = Date.now() - YOUTUBE_PUBLISH_WINDOW_MS;
@@ -1978,6 +2016,8 @@ async function fetchYouTubeVideos(env, force = false) {
       return {
         id: item.id,
         title: snippet.title || '',
+        description: snippet.description || '',
+        categoryId: snippet.categoryId || '',
         channel: snippet.channelTitle || '',
         channelId: snippet.channelId || '',
         thumbnail: `https://i.ytimg.com/vi/${item.id}/maxresdefault.jpg`,
@@ -1991,6 +2031,11 @@ async function fetchYouTubeVideos(env, force = false) {
       // STRICT: verify channel is in whitelist
       if (!_youtubeWhitelistIds.has(video.channelId) || _blacklistIds.has(video.channelId)) {
         console.log(`[YouTube] REJECTED non-whitelist channel: "${video.channel}" (${video.channelId}) for video "${(video.title||'').substring(0,40)}"`);
+        return false;
+      }
+
+      if (shouldRejectYouTubeCategory(video.categoryId, video.title, video.description)) {
+        console.log(`[YouTube] Rejected (category ${video.categoryId}, not tech/digital): ${video.channel}: ${(video.title||'').substring(0,40)}`);
         return false;
       }
 
