@@ -14,6 +14,9 @@ last_update_by: HermesBPi
 
 
 
+### 2026-07-16 | 移除 YouTube 頻道 Microsoft Azure
+- 從 `_youtubeWhitelistIds` 同 `CHANNELS` 刪除
+
 ### 2026-07-16 | 影片篩選：保留科技／數碼
 - 補齊 10 個教學頻道 ID 入 `_youtubeWhitelistIds`（之前 fetch 到但被 filter 剔走）
 - Music/Entertainment 類別只剔非科技／數碼標題；MKBHD、LTT 等數碼評測保留

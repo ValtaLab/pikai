@@ -19,7 +19,7 @@ const _youtubeWhitelistIds = new Set([
   'UCvKRFNawVcuz4b9ihUTApCg','UCMLtBahI5DMrt0NPvDSoIRQ','UCR9j1jqqB5Rse69wjUnbYwA',
   'UCBa5G_ESCn8Yd4vw5U-gIcg','UCEBb1b_L6zDS3xTUrIALZOw','UCYO_jab_esuFRV4b17AJtAw',
   'UCcIXc5mJsHVYTZR1maL5l9w','UCtYLUTtgS3k1Fg4y5tAhLbw','UCTMRxtyHoE3LPcrl-kT4AQQ',
-  'UC0m-80FnNY2Qb7obvTL_2fA',
+
   // Robotics channels
   'UC7vVhkEfw4nOGp8TyDk7RcQ', // Boston Dynamics
   'UCsMbp4V8oxzHCMdOUP-3oWw', // Unitree Robotics
@@ -1866,7 +1866,7 @@ async function fetchYouTubeVideos(env, force = false) {
       ['UCcIXc5mJsHVYTZR1maL5l9w', 'DeepLearningAI'],
       ['UCtYLUTtgS3k1Fg4y5tAhLbw', 'StatQuest'],
       ['UCTMRxtyHoE3LPcrl-kT4AQQ', 'Google Cloud Tech'],
-      ['UC0m-80FnNY2Qb7obvTL_2fA', 'Microsoft Azure'],
+
       // AI tutorial channels
       ['UCfzlCWGWYFIQi7jB3HjP4Lg', 'Sentdex'],
       ['UCHqRxy1Cb6T9i5DE5hEZ41Q', 'Nicholas Renotte'],
