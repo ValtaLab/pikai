@@ -14,6 +14,12 @@ last_update_by: HermesBPi
 
 
 
+### 2026-07-16 | 排行榜 UI 間距與標籤
+- 今日必讀 tab 下 padding-top 改 0.5rem，排行榜卡片貼近主 tab
+- rank-header / rank-tabs 內距收緊
+- 移除標題列右上角「OpenRouter · 本週」
+- Deploy: fab5604
+
 ### 2026-07-16 | Ranking card 去掉公司名
 - 刪除 usage/intel 嘅 `.rank-provider` 標籤（tencent/deepseek/…）
 - Model 欄唔再 ellipsis 截斷，可換行顯示全名
