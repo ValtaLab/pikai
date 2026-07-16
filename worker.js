@@ -3444,6 +3444,15 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += ".yt-badge svg { width: 14px; height: 10px; flex-shrink: 0; }";
   html += ".summarized-title { font-size: 1.14rem; color: #222; line-height: 1.4; margin-bottom: 0.5rem; font-weight: 600; }";
   html += ".video-title { font-size: 1.05rem; color: #222; line-height: 1.45; margin-bottom: 0.5rem; font-weight: 600; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }";
+  html += ".summarized-card.video-card { cursor: default; }";
+  html += ".video-media { position: relative; width: 100%; aspect-ratio: 16/9; background: #000; cursor: pointer; }";
+  html += ".video-media .summarized-image { display: block; width: 100%; height: 100%; aspect-ratio: auto; object-fit: cover; }";
+  html += ".video-play-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.25); border: none; cursor: pointer; transition: background 0.2s; }";
+  html += ".video-play-overlay:hover { background: rgba(0,0,0,0.4); }";
+  html += ".video-play-overlay span { width: 64px; height: 64px; border-radius: 50%; background: rgba(255,0,0,0.92); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; padding-left: 4px; box-shadow: 0 4px 20px rgba(0,0,0,0.35); }";
+  html += ".video-inline-iframe { width: 100%; height: 100%; border: none; display: block; }";
+  html += ".video-media.is-playing { cursor: default; }";
+  html += ".video-expand-btn { position: absolute; top: 8px; right: 8px; z-index: 2; background: rgba(0,0,0,0.65); color: #fff; border: none; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; cursor: pointer; }";
   html += ".summarized-text { font-size: 1.02rem; color: #555; line-height: 1.5; }";
   html += ".video-ai-wrap { text-align: right; }";
   html += ".video-ai-btn { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; padding: 5px 12px; background: linear-gradient(135deg, #0066ff, #7b2dff); color: #fff; border: none; border-radius: 20px; font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }";
@@ -3711,12 +3720,16 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
     combinedItems.forEach(function(item) {
       if (item.type === 'video') {
         const video = item.data;
-        html += `<div class="summarized-card" onclick="openVideoModal('${video.id}')">`;
+        const thumbUrl = video.thumbnail ? escapeHtml(video.thumbnail) : '';
+        html += `<div class="summarized-card video-card">`;
+        html += `<div class="video-media" data-video-id="${escapeHtml(video.id)}" data-thumb="${thumbUrl}" onclick="playVideoInCard(event, this)">`;
         if (video.thumbnail) {
-          html += '<img class="summarized-image" src="' + escapeHtml(video.thumbnail) + '" alt="" onerror="this.style.display=\'none\'">';
+          html += '<img class="summarized-image" src="' + thumbUrl + '" alt="" onerror="this.style.display=\'none\'">';
         } else {
           html += '<div class="summarized-image-placeholder">🎬</div>';
         }
+        html += '<button type="button" class="video-play-overlay" aria-label="在卡片內播放"><span>▶</span></button>';
+        html += '</div>';
         html += '<div class="summarized-content">';
         html += '<div class="summarized-source"><span class="yt-badge"><svg viewBox="0 0 24 16" fill="white"><path d="M23.5 2.5c-.3-1-1-1.8-2-2C19.4 0 12 0 12 0S4.6 0 2.5.5c-1 .2-1.7 1-2 2C0 4.7 0 8 0 8s0 3.3.5 5.5c.3 1 1 1.8 2 2C4.6 16 12 16 12 16s7.4 0 9.5-.5c1-.2 1.7-1 2-2C24 11.3 24 8 24 8s0-3.3-.5-5.5zM9.5 11.5V4.5L16 8l-6.5 3.5z"/></svg> YouTube</span>' + escapeHtml(video.channel) + ' · ' + escapeHtml(video.viewCount || '') + ' · ' + escapeHtml(video.duration || '') + '</div>';
         const videoTitle = video.titleZh || video.title;
@@ -4013,6 +4026,8 @@ function generatePage({ news = [], tools = [], videos = [], blogPosts = [], upda
   html += '<button class="back-to-top" id="backToTop" aria-label="\u8FD4\u56DE\u9802\u90E8">\u2191</button>';
   html += "</div>";
   html += "<script>";
+  html += 'function resetVideoMedia(wrap){if(!wrap)return;var id=wrap.dataset.videoId||"";var thumb=wrap.dataset.thumb||"";wrap.classList.remove("is-playing");var inner="";if(thumb){inner+=\'<img class="summarized-image" src="\'+thumb+\'" alt="" onerror="this.style.display=\\\'none\\\'">\';}else{inner+=\'<div class="summarized-image-placeholder">🎬</div>\';}inner+=\'<button type="button" class="video-play-overlay" aria-label="在卡片內播放"><span>▶</span></button>\';wrap.innerHTML=inner;}';
+  html += 'function playVideoInCard(e,wrap){if(e.target.closest(".video-ai-wrap"))return;e.stopPropagation();var id=wrap&&wrap.dataset.videoId;if(!id)return;document.querySelectorAll(".video-media.is-playing").forEach(function(other){if(other!==wrap)resetVideoMedia(other);});if(wrap.classList.contains("is-playing"))return;wrap.classList.add("is-playing");wrap.innerHTML=\'<iframe class="video-inline-iframe" src="https://www.youtube-nocookie.com/embed/\'+id+\'?autoplay=1&rel=0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture;web-share" allowfullscreen></iframe><button type="button" class="video-expand-btn" onclick="event.stopPropagation();openVideoModal(\\\'\'+id+\'\\\')">全屏</button>\';}';
   html += 'function openVideoModal(id){var m=document.getElementById("videoModal"),f=document.getElementById("videoIframe");f.src="https://www.youtube.com/embed/"+id+"?autoplay=1";m.style.display="flex";document.body.style.overflow="hidden";}';
   html += 'function closeVideoModal(){var m=document.getElementById("videoModal"),f=document.getElementById("videoIframe");f.src="";m.style.display="none";document.body.style.overflow="";}';
   html += 'async function fetchVideoSummary(btn,videoId){var box=document.getElementById("ai-summary-"+videoId);var err=document.getElementById("ai-error-"+videoId);if(box&&box.classList.contains("visible"))return;if(btn)btn.disabled=true;if(btn)btn.textContent="⟳ AI 總結中...";if(err)err.textContent="";try{var res=await fetch("/api/video-summary",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({videoId:videoId})});var data=await res.json();if(data.error){if(err)err.textContent=data.error;if(btn)btn.textContent="🧠 AI Digest";return;}if(box){var arr=data.summary.split("\\n");var h="";for(var i=0;i<arr.length;i++){if(arr[i].trim())h+="<p>"+arr[i].trim()+"</p>";}box.querySelector(".video-ai-body").innerHTML=h;box.classList.add("visible");}if(btn)btn.textContent="🧠 AI Digest";}catch(e){if(err)err.textContent="連線錯誤，請稍後再試";if(btn)btn.textContent="🧠 AI Digest";}finally{if(btn)btn.disabled=false;}}';
