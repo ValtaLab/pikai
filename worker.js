@@ -2659,12 +2659,26 @@ var worker_default = {
       }
     }
   },
+
   async fetch(request, env) {
     try {
       const url = new URL(request.url);
+
+      // --- P0 Auth: protect write/admin endpoints ---
+      function checkAuth() {
+        const token = env.INGEST_TOKEN;
+        if (!token) return null; // no secret configured = open (dev mode)
+        const auth = request.headers.get("Authorization") || "";
+        if (auth === `Bearer ${token}`) return null;
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
       if (request.method === "OPTIONS") {
         return new Response(null, {
-          headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Access-Control-Max-Age": "86400" }
+          headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type, Authorization", "Access-Control-Max-Age": "86400" }
         });
       }
       if (url.pathname === "/health") {
@@ -2851,6 +2865,7 @@ var worker_default = {
         }
       }
       if (url.pathname === "/trigger-youtube") {
+        const denied = checkAuth(); if (denied) return denied;
         try {
           const videos = await fetchYouTubeVideos(env, true);
           return new Response(JSON.stringify({
@@ -2863,6 +2878,7 @@ var worker_default = {
         }
       }
       if (url.pathname === "/api/ingest" && request.method === "POST") {
+        const denied = checkAuth(); if (denied) return denied;
         try {
           const body = await request.json();
           const articles = body.articles || [];
@@ -3089,6 +3105,7 @@ var worker_default = {
         }, null, 2), { status: 410, headers: { "Content-Type": "application/json" } });
       }
       if (url.pathname === "/trigger-rankings") {
+        const denied = checkAuth(); if (denied) return denied;
         try {
           const rankings = await fetchORRankings(env);
           if (rankings && rankings.usage && rankings.usage.length > 0) {
@@ -3102,6 +3119,7 @@ var worker_default = {
         }
       }
       if (url.pathname === "/debug-news") {
+        const denied = checkAuth(); if (denied) return denied;
         try {
           // Read KV only — never live-fetch news
           const raw = await env.AI_NEWS_KV.get("news-data");
@@ -3125,6 +3143,7 @@ var worker_default = {
         }
       }
       if (url.pathname === "/debug-videos") {
+        const denied = checkAuth(); if (denied) return denied;
         try {
           const videos = await fetchYouTubeVideos(env);
           return new Response(JSON.stringify({

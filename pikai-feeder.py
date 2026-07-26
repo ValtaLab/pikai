@@ -6,6 +6,7 @@ Run via cron: */30 * * * * /usr/bin/python3 /home/blackpi/ai-news-webapp/pikai-f
 
 import feedparser
 import json
+import os
 import re
 import sys
 import time
@@ -333,6 +334,7 @@ def main():
     req = Request(WORKER_URL, data=payload, headers={
         'Content-Type': 'application/json',
         'User-Agent': 'PikAI-Feeder/1.0',
+        'Authorization': f'Bearer {os.environ.get("PIKAI_INGEST_TOKEN", "")}',
     })
     
     try:
